@@ -1,0 +1,106 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+			{
+				"name": "AhkV1-L",
+				"type": "autohotkey",
+				"request": "launch",
+				"runtime_v1": "C:/Program Files/AutoHotkey/AutoHotkeyU64.exe", // v1.1.37.01/
+				"runtime_v2": "C:/Program Files/AutoHotkey/v2/AutoHotkey64.exe",
+				"program": "${workspaceFolder}/Main.ahk",
+				"stopOnEntry": false,
+				//"port": "9002-9010",
+				"runtimeArgs": ["/restart"],
+				//"args": ["/runas"],
+				"useDebugDirective": true,
+				"useAutoJumpToError": true,
+				
+			},
+			{
+				"name": "AhkV1-A",
+				"type": "autohotkey",
+				"request": "attach",
+				"runtime": "C:/Program Files/AutoHotkey/AutoHotkeyU64.exe",
+				"program": "${workspaceFolder}/Main.ahk",
+				"stopOnEntry": true,
+			},
+
+		]
+	},
+	"settings": {
+		"workbench.colorCustomizations": {
+			"titleBar.activeBackground": "#2650aa",
+			"titleBar.inactiveBackground": "#002c6d",
+			"titleBar.activeForeground": "#ffffff",
+			"titleBar.inactiveForeground": "#858585"
+		},
+		"files.exclude": { //* vscode 文件列表 排除
+		"**/.git": true,
+		"**/.svn": true,
+		"3rd" : true,
+		"build" : true,
+		"assets" : true, //typora markdown 图片
+		"**/desktop.ini": true,
+		},
+		"search.exclude": { //* vscode 全局搜索 排除
+			"**/.git": true,
+			"**/.svn": true,
+			"3rd" : true,
+			"build" : true,
+			"assets" : true, //typora markdown 图片
+			"LICENSE" : true,
+			"**/desktop.ini": true,
+			"*.md": true,
+			"**/*.code-search": true
+		},
+		"cSpell.enabledLanguageIds": [
+			"asciidoc",
+			"c",
+			"cpp",
+			"csharp",
+			"css",
+			"elixir",
+			"erlang",
+			"git-commit",
+			"go",
+			"graphql",
+			"handlebars",
+			"haskell",
+			"html",
+			"jade",
+			"java",
+			"javascript",
+			"javascriptreact",
+			"json",
+			"jsonc",
+			"jupyter",
+			"latex",
+			"less",
+			"markdown",
+			"php",
+			"plaintext",
+			"python",
+			"pug",
+			"restructuredtext",
+			"rust",
+			"scala",
+			"scss",
+			"scminput",
+			"swift",
+			"text",
+			"typescript",
+			"typescriptreact",
+			"vue",
+			"yaml",
+			"yml",
+			"COBOL",
+			"ACUCOBOL"
+		]
+	}
+}

@@ -1,0 +1,9 @@
+﻿build/*
+3rd/*
+*.bak
+assets2/*
+desktop.ini
+*.zip
+*.rar
+*.7z
+~$*.*
