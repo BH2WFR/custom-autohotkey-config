@@ -1,5 +1,9 @@
 ﻿build/*
 3rd/*
+/tmp/
+__pycache__/
+*.py[cod]
+.pytest_cache/
 *.bak
 assets2/*
 desktop.ini
