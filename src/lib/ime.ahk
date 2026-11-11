@@ -9,7 +9,9 @@ class ImeApi {
     static SetOpenStatus := 0x0006
     static AbortIfHung := 0x0002
     static MessageTimeout := 200
-    static RestoreDelay := 50
+    static RestoreDelay := 300
+    static ChineseRestoreKeys := "^{Space}"
+    static RestorePollInterval := 10
     static GuiInfoSize := 8 + 6 * A_PtrSize + 16
     static FocusOffset := 8 + A_PtrSize
 
@@ -44,7 +46,7 @@ class ImeApi {
     }
 
     ; 扫描码打字期间关闭 IME，完成或异常后恢复原状态。
-    WithClosed(hwnd, action) {
+    WithClosed(hwnd, action, sender := unset) {
         imeWindow := this.Window(hwnd)
         if !imeWindow
             return action.Call()
@@ -55,11 +57,21 @@ class ImeApi {
             return action.Call()
         } finally {
             if opened {
-                ; SendEvent 返回时目标窗口可能尚未处理完输入，过早恢复会让 IME 吞掉扫描码。
-                Sleep(ImeApi.RestoreDelay)
-                this.Control(imeWindow, ImeApi.SetOpenStatus, opened)
+                if IsSet(sender) && this.Language(hwnd) == ImeApi.Chinese {
+                    ; 恢复键排在文本事件之后；API 消息会越过目标线程尚未处理的输入。
+                    sender.Send(ImeApi.ChineseRestoreKeys)
+                    this.WaitUntilOpen(imeWindow)
+                } else {
+                    Sleep(ImeApi.RestoreDelay)
+                    this.Control(imeWindow, ImeApi.SetOpenStatus, opened)
+                }
             }
         }
+    }
+
+    WaitUntilOpen(imeWindow) {
+        while !this.Control(imeWindow, ImeApi.GetOpenStatus)
+            Sleep(ImeApi.RestorePollInterval)
     }
 
     Control(hwnd, command, value := 0) {

@@ -27,7 +27,7 @@ class EditingTests {
         Text(value) => this.TextRuns.Push(value)
     }
     class InactiveIme {
-        WithClosed(hwnd, action) => action.Call()
+        WithClosed(hwnd, action, sender := unset) => action.Call()
     }
     static Assert(value, message) {
         this.Count++

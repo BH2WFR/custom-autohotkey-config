@@ -31,7 +31,7 @@ class TextTyper {
 
     Type(text, hwnd := 0) {
         if text != ""
-            this.Ime.WithClosed(hwnd ? hwnd : WinExist("A"), ObjBindMethod(this, "SendText", text))
+            this.Ime.WithClosed(hwnd ? hwnd : WinExist("A"), ObjBindMethod(this, "SendText", text), this.Sender)
     }
 
     SendText(text) {

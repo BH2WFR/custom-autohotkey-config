@@ -210,7 +210,7 @@ Anki 中，Layer 特殊热键：
 | G | `fg_gn` | `fg_bl` |
 
 - Caps+Q 接收系统修饰键，例如 Ctrl+Caps+Q 发送 Ctrl+Esc。
-- Caps+Z 的 ASCII 字符发送扫描码，非 ASCII 使用文本发送；打字期间临时关闭 IME，发送后等待 50 ms 再恢复，异常时同样恢复，第 3 层使用第二剪贴板，此等待不用于 Layer 松开切换输入法。
+- Caps+Z 的 ASCII 字符发送扫描码，非 ASCII 使用文本发送；打字期间临时关闭 IME，中文恢复用队尾 Ctrl+Space 并等待状态确认，禁止用固定延时判定中文输入完成；韩文、日文暂保留 300 ms 后 API 恢复，异常时同样恢复，第 3 层使用第二剪贴板。
 - Caps+Shift+Z 使用 Python tkinter GUI，功能同原 AHK-SysUtil 中 Caps+Shift+V 的高级粘贴功能。
 - Caps+Shift+V 和第 4 层 V 高级粘贴不弹输入框，路径沿用 CMake GUI 的正斜杠转换；C/Shift+C 保持复制/复制当前行。
 - RDP 中 Layer 默认映射为 F1，可在托盘切换为 CapsLock、F24 或本地层。
