@@ -7,8 +7,7 @@ import tkinter as tk
 import traceback
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "py"))
-from gui.screen_keyboard import ScreenKeyboard
-from gui.keyboard_layout import DEFAULT_SIZE
+from gui.screen_keyboard import DEFAULT_SIZE, ScreenKeyboard
 from utils.nonactivating_window import GWL_STYLE, WS_MINIMIZEBOX, U
 
 U.GetWindow.argtypes = [W.HWND, W.UINT]

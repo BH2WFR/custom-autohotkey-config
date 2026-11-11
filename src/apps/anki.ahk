@@ -27,7 +27,7 @@ class AnkiStyles {
         this.Tooltip.Show("Anki：清除格式", AnkiStyles.TipDuration)
     }
 
-    ; Caps 分发器负责窗口匹配及修饰键释放，Blind 发送不恢复已释放的修饰键。
+    ; Layer 分发器负责窗口匹配及修饰键释放，Blind 发送不恢复已释放的修饰键。
     Send(style, *) {
         keys := AnkiStyles.Shortcuts[style]
         if keys == ""

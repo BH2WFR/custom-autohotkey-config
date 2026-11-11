@@ -1,4 +1,4 @@
-﻿; Caps 层会话与物理按键收尾；不依赖定时轮询。
+﻿; Layer 会话与物理按键收尾；不依赖定时轮询。
 class LayerState {
     __New() {
         this.Phase := "Idle"

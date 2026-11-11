@@ -1,15 +1,17 @@
 # 项目指南
 
-当前要制作一款私人键盘 Caps 层小工具
+当前要制作一款私人键盘 Layer 小工具。
+
+特殊层触发键统称为 `Layer`（caps layer key），热键写法仍保留 `Caps+按键`，其中 Caps 代表任一 Layer 触发键；物理映射和真实键码使用 CapsLock、F1、F24 等具体键名。
 
 源项目 AHK-SysUtil 的源码目录： `D:\Projects\AHK_Scripts\AHK-SysUtil`，这是个 AHKv1 写的工具。
 
-AHK-SysUtil 是一款把 Caps 和 RAlt 变成特殊层，以实现很多奇妙热键的工具。其工作时需要通过 windows 注册表，添加一个 Caps->F24, RAlt->F23 的键盘映射。其中，以 Caps 距离，Caps+A 则为第一层，Caps+Shift+A 则为第二层。部分热键需要接收系统修饰键，此时该热键只有一层，如 Caps+Q 发送esc，则 Caps+Shift+Q 发送 Shift+esc，Ctrl+Caps+Q 发送 ctrl+esc。
+AHK-SysUtil 通过 Windows 注册表将 CapsLock 映射为 F24、RAlt 映射为 F23，以触发特殊层。以 Layer 为例，Caps+A 为第一层，Caps+Shift+A 为第二层；穿透热键保留系统修饰键，例如 Ctrl+Caps+Q 发送 Ctrl+Esc。
 
 当前新工具需要用 AHKv2 完全重写，并进行以下的重大改进：
 
-- 仅保留 Caps 作为特殊层触发键；取消 RAlt 热键。彻底删除 RAlt Mode 的概念。
-- 加入以 Caps+Alt 作为第 3/4 层热键的触发；Caps、Alt、Shift 不限按下顺序。
+- 仅保留 Layer 特殊层；取消 RAlt 热键。彻底删除 RAlt Mode 的概念。
+- 加入以 Caps+Alt 作为第 3/4 层热键的触发；Layer、Alt、Shift 不限按下顺序。
 - 大量精简功能，取消特殊符号/过多的文本编辑/热字串功能
 - 部分复杂功能改用 Python 实现，所有复杂 GUI 界面改用 Python tkiner 实现。
 - 软件的设置功能不再使用注册表，而使用 json 格式。
@@ -39,7 +41,7 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 - `src/lib/`：JSON、配置读写、Python 进程启动和系统输入等基础能力；`src/utils/`：通用辅助类，均不包含应用名单、项目绑定或具体 GUI 功能。
 - 基础打字、剪贴板、文本转换、自动编辑和窗口操作分别位于 `lib/typing.ahk`、`clipboard.ahk`、`text.ahk`、`editing.ahk`、`window.ahk`；应用分流由 `rules/editing.ahk` 决定，第二剪贴板状态归 `actions/clipboard.ahk`。
 - `src/hotkeys/`：原生钩子、层状态、注册容器、分发和按键路由机制；别名和策略由外部注入。
-- `src/rules/`：可扩展的热键声明、窗口分类、Caps 策略和托盘布局；`src/actions/`：具体功能与其运行状态；`src/apps/`：应用专用功能。
+- `src/rules/`：可扩展的热键声明、窗口分类、Layer 策略和托盘布局；`src/actions/`：具体功能与其运行状态；`src/apps/`：应用专用功能。
 - `src/ui/`：托盘等界面视图，只接收命令和状态查询，不直接访问 App、配置或功能内部对象。
 - Caps+W 使用原生 AHK GUI：`lib/window_info.ahk`、`process.ahk` 查询系统，`actions/window_inspector.ahk` 管理目标及单实例，`ui/window_inspector.ahk` 渲染；选窗或刷新时立即读取进程详情，控件仍按按钮读取，未读取时列表显示提示，无轮询定时器。
 - `ui/window_picker.ahk` 通过鼠标捕获实现拖拽选窗和粗框高亮，按物理坐标及目标显示器缩放绘制，释放、取消或关闭时清理捕获与边框，保留独立弹窗作为目标。
@@ -60,9 +62,9 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 
 ## 细节指南
 
-- 软件启动后，仍然保留托盘菜单和图标。托盘菜单中保留屏幕键盘、F1作为caps的alias（可保存状态）、F2/F3/F4 映射中键/滚动（不保存，启动时默认关闭）、是否交换横向滚动方向、是否开启 Win+鼠标滚轮调节窗口透明度等设置。
+- 软件启动后，仍然保留托盘菜单和图标。托盘菜单中保留屏幕键盘、F1 作为 Layer 触发键（可保存状态）、F2/F3/F4 映射中键/滚动（不保存，启动时默认关闭）、是否交换横向滚动方向、是否开启 Win+鼠标滚轮调节窗口透明度等设置。
 - 软件启动时，自动根据配置获取 conda 环境名称，并查找 python 入口，方便快速启动调用python的功能
-- Caps 别名固定为 CapsLock、F1（托盘可关闭）、F24（固定开启）、F6（由 `DebugMode` 控制，仅调试），F23 不注册为层键或输入法切换键。
+- Layer 触发键固定为 CapsLock、F1（托盘可关闭）、F24（固定开启）、F6（由 `DebugMode` 控制，仅调试），F23 不注册为层键或输入法切换键。
 - README.md 中随时写入各热键的功能介绍，通常每个功能的介绍不超过两句话，仅围绕其核心功能展开，不得出现与核心功能无关的交互、注意事项、或防御性语言等内容；由于功能还不稳定，暂时不写任何与功能说明无关的，如安装指南等内容。
 - 所有 AHK 函数，均应当包裹到 class 中。本项目应当使用 OOP 风格的代码组织方式。
 - 输入法相关功能，需要进行一定简化，取消过多的自定义功能，仅保留常规的几种配置。
@@ -70,8 +72,8 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 - 过度的防御性编程、防御性说明是不受欢迎的。
 - 本项目运行时要将对系统 CPU 的占用降到最低。
 - 可保留简化的关于/设置界面，设置中仅包含开机启动注册、按键映射、进程优先级、打开设置目录等核心功能。
-- 热键默认保留 Caps 会话，松开功能键后可重复或交替触发；分层动作执行前释放系统侧修饰键和触发键，结束或异常时恢复仍按住的原有修饰键，显式释放按键的动作不恢复。
-- 前台为远程桌面或虚拟机窗口时，所有 Caps 别名共用 `RemoteDesktop.capsMode`，可发送 CapsLock/F1/F24 或使用本地层。
+- 热键默认保留 Layer 会话，松开功能键后可重复或交替触发；分层动作执行前释放系统侧修饰键和触发键，结束或异常时恢复仍按住的原有修饰键，显式释放按键的动作不恢复。
+- 前台为远程桌面或虚拟机窗口时，所有 Layer 触发键共用 `RemoteDesktop.capsMode`，可发送 CapsLock/F1/F24 或使用本地层。
 - 保持单一职责原则，不可以为了追求方便而增加代码耦合度。涉及窗口分类、热键注册等有可扩展性的内容，不可以与基础库放到一起。
 - 禁止硬编码的魔鬼数字、魔鬼字符串。应当使用全局变量或类的static变量。
 - 允许破坏性更新，该重构就重构，严禁当不断添加回退或防御性代码的糊裱匠。
@@ -91,7 +93,7 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 - `Q`、`U/I/O/J/K/L` 和反斜杠穿透所有修饰键；`I/J/K/L` 每次移动 1 个物理像素，Shift 默认 10 个，由 `Mouse.pointerFastStep` 设置，移动不显示 Tooltip；Anki 专用规则优先。
 - `tests/test_hotkeys.ahk` 验证注册与分流，`tests/test_editing.ahk` 验证文本转换、真实编辑控件、剪贴板恢复、ASCII 扫描码、Unicode 和窗口状态。
 - `Layers` 默认可重复，`Pass` 同时穿透修饰键；GUI、菜单用 `Once` 结束本次层，同一按键的不同层可分别使用 `Once` 和 `Layers`，应用规则同样支持，滚轮不注册 KeyUp。
-- 一次性动作结束层后，在所有 Caps 别名松开前继续吸收已触发键及当前匹配的热键，不能泄漏为普通输入；如 Caps 不松开连按两次 E，第二次不得打开菜单或输入 e。
+- 一次性动作结束层后，在所有 Layer 触发键松开前继续吸收已触发键及当前匹配的热键，不能泄漏为普通输入；如 Layer 不松开连按两次 E，第二次不得打开菜单或输入 e。
 - `src/apps/anki.ahk` 提供 `AnkiStyles(sender, tooltip).Send(style)` 和 `Clear()`，按本文 Anki 表注册，Meta 对应 Win；`bg_gm` 无快捷键且不发送输入。非 Anki 窗口回退默认功能，无默认功能则无动作；匹配 Anki 专用按键后，空白层不回退。
 
 ## 启动与托盘
@@ -112,6 +114,7 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 - 屏幕键盘使用 tkinter 复刻 macOS RDP 六行布局，Layer 和修饰键支持单次保留、长按锁定；Windows 非激活窗口不抢焦点，输入经 `actions/screen_keyboard.ahk` 转交 `hotkeys/virtual_keyboard.ahk` 复用注册表及分发器，暂停和关闭清理会话，AHK 退出或重载时关闭所属 Python 窗口。
 - 屏幕键盘不显示或持续监听前台窗口，切换应用不隐藏键盘；操作键盘时核对目标，目标变化则清理上一窗口的按键状态。
 - 屏幕键盘默认 512×197，无最小化按钮；置顶界面显示后再次置前，屏幕键盘提升 Z 序但不抢输入焦点，普通 GUI 同时激活。
+- 屏幕键盘布局与界面统一放在 `py/gui/screen_keyboard.py`；悬停仅提亮底色，保留前景色，按键使用浅色单像素边框。
 - “更多”展开右侧数字小键盘及下方单行特殊键；仅展开时每 250 ms 读取锁定键状态，有变化才刷新，NumLock 决定小键盘标签及发送的数字/导航键。
 - 同一 AHK 宿主的 Python 屏幕键盘以 Windows 命名互斥量保证单实例；重复启动等待原窗口就绪，通知其移到鼠标附近后退出新进程。
 - ctypes 原生窗口回调只将命令入队，由阻塞等待的工作线程交给 Tk 主线程，禁止在原生回调中直接调用 Tk。
@@ -120,22 +123,22 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 - `tests/test_app.ahk` 检查菜单、图标、配置、鼠标收尾、临时启动快捷方式与 Python 窗口生命周期。
 - `tests/test_xbuttons.ahk` 检查应用分流、侧键收尾、点击布局及缩放换算；`HotkeySession` 统一切换各输入控制器的启用状态。
 - 中键拖动由 `MiddleDragPolicy` 选择按键、`MiddleDragController` 管理按下到抬起；暂停或退出释放所模拟的按键，窗口切换不改变释放对象，`tests/test_middle_drag.ahk` 验证生命周期及分组。
-- 滚轮优先级为 Caps 连续滚动、Win 透明度、无修饰键的任务栏音量，规则在 `src/rules/wheel.ahk`；`src/lib/touchpad.ahk` 注入双触点，`TouchpadActions` 负责缩放轨迹及暂停/失败收尾，`tests/test_wheel_touchpad.ahk` 验证路由、DPI 和触点生命周期。
+- 滚轮优先级为 Layer 连续滚动、Win 透明度、无修饰键的任务栏音量，规则在 `src/rules/wheel.ahk`；`src/lib/touchpad.ahk` 注入双触点，`TouchpadActions` 负责缩放轨迹及暂停/失败收尾，`tests/test_wheel_touchpad.ahk` 验证路由、DPI 和触点生命周期。
 - 触摸注入保留有效接触面积并随触点更新；`tests/test_touchpad_edge.ahk` 用独立 Edge 页面验证缩放及零右键菜单事件，不能通过拦截右键或发送 Esc 掩盖误触。
 
 ## 远程桌面
 
 - `src/rules/windows.ahk` 集中维护前台窗口分类；`caps_policy.ahk` 将远程桌面类别和配置转换为路由，基础钩子不包含应用名单。
 - 分类统一通过 `WindowGroups.Matches(WindowGroups.<类别>, hwnd)` 查询，包含 Anki/编辑窗口、图片/聊天看图窗口、中键拖动、远程/虚拟机侧键穿透和前进/后退特殊应用；`Definitions` 维护原生匹配项，`Includes` 组合已有类别。
-- `RemoteDesktop.capsMode` 可设为 `CapsLock`、`F1`、`F24` 或 `layer`，默认 `F1`，托盘可切换并保存；当前启用的 Caps 别名统一使用此策略。
-- 转发模式保留修饰键且不执行本地 Caps 层，按下到抬起固定同一目标；多个别名共享目标时，最后一个松开才发送抬起；暂停与退出释放已转发的键。
+- `RemoteDesktop.capsMode` 可设为 `CapsLock`、`F1`、`F24` 或 `layer`，默认 `F1`，托盘可切换并保存；当前启用的 Layer 触发键统一使用此策略。
+- 转发模式保留修饰键且不执行本地 Layer，按下到抬起固定同一目标；多个别名共享目标时，最后一个松开才发送抬起；暂停与退出释放已转发的键。
 - `tests/test_remote.ahk` 验证窗口分类、路由选择、模式切换及按键收尾。
 
 ## 热键列表
 
-Caps layer 未执行热键时，最后一个别名松开触发输入法语言切换；穿透热键同样标记为已使用，消费、暂停取消、远程转发均不触发松开动作，`tests/test_ime.ahk` 验证该流程和语言分流。
+Layer 未执行热键时，最后一个别名松开触发输入法语言切换；穿透热键同样标记为已使用，消费、暂停取消、远程转发均不触发松开动作，`tests/test_ime.ahk` 验证该流程和语言分流。
 
-按键盘从上到下、从左到右排列；图中双行功能的下行为 Caps 层，上行为 Caps+Shift 层。空白项用“—”表示，已划掉的功能不纳入。
+按键盘从上到下、从左到右排列；图中双行功能的下行为 Layer，上行为 Caps+Shift 层。空白项用“—”表示，已划掉的功能不纳入。
 
 | 按键 | Caps+按键 | Caps+Shift+按键 |
 | --- | --- | --- |
@@ -191,7 +194,7 @@ Caps+Alt 第 3/4 层热键：
 | C | [第二剪贴板] 纯文本复制 | [第二剪贴板] 复制当前行 |
 | V | [第二剪贴板] 纯文本粘贴 | [第二剪贴板] 高级粘贴 |
 
-Anki 中，Caps 特殊热键：
+Anki 中，Layer 特殊热键：
 
 | 按键 | Caps+按键 | Caps+Shift+按键 |
 | --- | --- | --- |
@@ -207,15 +210,15 @@ Anki 中，Caps 特殊热键：
 | G | `fg_gn` | `fg_bl` |
 
 - Caps+Q 接收系统修饰键，例如 Ctrl+Caps+Q 发送 Ctrl+Esc。
-- Caps+Z 的 ASCII 字符发送扫描码，非 ASCII 使用文本发送；打字期间临时关闭 IME，发送后等待 50 ms 再恢复，异常时同样恢复，第 3 层使用第二剪贴板，此等待不用于 Caps 松开切换输入法。
+- Caps+Z 的 ASCII 字符发送扫描码，非 ASCII 使用文本发送；打字期间临时关闭 IME，发送后等待 50 ms 再恢复，异常时同样恢复，第 3 层使用第二剪贴板，此等待不用于 Layer 松开切换输入法。
 - Caps+Shift+Z 使用 Python tkinter GUI，功能同原 AHK-SysUtil 中 Caps+Shift+V 的高级粘贴功能。
 - Caps+Shift+V 和第 4 层 V 高级粘贴不弹输入框，路径沿用 CMake GUI 的正斜杠转换；C/Shift+C 保持复制/复制当前行。
-- RDP 中 Caps 默认映射为 F1，可在托盘切换为 CapsLock、F24 或本地层。
+- RDP 中 Layer 默认映射为 F1，可在托盘切换为 CapsLock、F24 或本地层。
 
 ## 特殊功能：
 
 - 鼠标侧键按 WindowGroups 规则同时选择动作和 Tooltip，Keys 和 Tips 直接写在规则中，不另抽常量或按热键反查；Anki 使用默认前进/后退，原始穿透或未执行动作时不提示。
-- caps+鼠标滚轮：快速滚动；Caps+Shift+鼠标滚轮：横向滚动
+- Caps+鼠标滚轮：快速滚动；Caps+Shift+鼠标滚轮：横向滚动
 - 保留在各别图片查看器中，鼠标中键拖动功能；
 - 任务栏（含副屏任务栏）中，可通过滚动鼠标滚轮以调节音量
 - Win+鼠标滚轮，可给当前窗口调整透明度，此功能可关闭
@@ -225,5 +228,5 @@ Anki 中，Caps 特殊热键：
 
 待写
 
-- 本电脑已加入 Caps->F24 的注册表按键映射，由 F24 直接触发 Caps 层；F6 保留为调试别名。
+- 本电脑已加入 CapsLock->F24 的注册表按键映射，由 F24 直接触发 Layer；F6 保留为调试别名。
 - 沿用 AHK-SysUtil 的成熟实现；移植后验证实际输入及系统 API 行为，出现错误或延迟时通过复现和分段计时定位，不以模拟测试代替实机验证。

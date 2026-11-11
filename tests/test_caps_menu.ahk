@@ -76,7 +76,7 @@ class CapsMenuTests {
             expected := "Ab1Ab1Ab1Ab1" Chr(0xA0) Chr(0xA0) Chr(0x3000) Chr(0x3000)
             if edit.Value != expected
                 throw Error("Repeated paste/typing/spaces failed: " edit.Value)
-            FileAppend("PASS: repeated paste, typing and both special spaces in one Caps session`n", "*")
+            FileAppend("PASS: repeated paste, typing and both special spaces in one Layer session`n", "*")
         } finally {
             this.PhysicalState("LShift", false)
             SendEvent("{Blind}{F24 up}")
@@ -103,8 +103,8 @@ class CapsMenuTests {
             this.Press("e")
             if WinExist("ahk_class #32768 ahk_pid " pid) || edit.Value != ""
                 || SendMessage(this.QueryKeyMessage, this.EKey, 0,, "ahk_id " receiver) != previous
-                throw Error("One-shot key leaked or reopened menu with Caps held")
-            FileAppend("PASS: repeated E is absorbed after menu close until Caps release`n", "*")
+                throw Error("One-shot key leaked or reopened menu with Layer held")
+            FileAppend("PASS: repeated E is absorbed after menu close until Layer release`n", "*")
         } finally {
             this.PhysicalState("F24", false)
             SendEvent("{Blind}{e up}{F24 up}")
@@ -130,8 +130,8 @@ class CapsMenuTests {
             position := this.Position()
             escapes := SendMessage(this.QueryKeyMessage, this.EscapeKey, 0,, "ahk_id " window.Hwnd)
             if escapes != 2 || position.X != saved.X + 1 || position.Y != saved.Y
-                throw Error("Held Caps session failed: Esc=" escapes ", dx=" (position.X-saved.X) ", dy=" (position.Y-saved.Y))
-            FileAppend("PASS: Esc and pointer keys repeat/interleave with Caps held`n", "*")
+                throw Error("Held Layer session failed: Esc=" escapes ", dx=" (position.X-saved.X) ", dy=" (position.Y-saved.Y))
+            FileAppend("PASS: Esc and pointer keys repeat/interleave with Layer held`n", "*")
         } finally {
             SendEvent("{F24 up}")
             DllCall("SetPhysicalCursorPos", "Int", saved.X, "Int", saved.Y)
@@ -146,7 +146,7 @@ class CapsMenuTests {
         pid := WinGetPID("ahk_id " owner)
         DetectHiddenWindows(false)
         ; 接收输入的 GUI 独立运行，避免测试自身的 SendEvent 阻塞目标消息循环。
-        title := "Caps verification " DllCall("GetCurrentProcessId")
+        title := "Layer verification " DllCall("GetCurrentProcessId")
         Run('"' A_AhkPath '" /ErrorStdOut "' A_ScriptFullPath '" --receiver "' title '"',, "Hide", &receiverPid)
         hwnd := WinWait(title " ahk_pid " receiverPid,, 3)
         if !hwnd

@@ -1,4 +1,4 @@
-﻿; Caps 滚轮优先，其次 Win 透明度，最后无修饰键的任务栏音量。
+﻿; Layer 滚轮优先，其次 Win 透明度，最后无修饰键的任务栏音量。
 class WheelPolicy {
     static TransparencyStep := 20
     static Caps := "caps"

@@ -7,8 +7,7 @@ import traceback
 import faulthandler
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "py"))
-from gui.screen_keyboard import ScreenKeyboard
-from gui.keyboard_layout import DEFAULT_SIZE
+from gui.screen_keyboard import DEFAULT_SIZE, ScreenKeyboard
 from utils.keyboard_state import LockKeyState
 from utils.nonactivating_window import U
 
@@ -75,6 +74,7 @@ class DesktopTest:
     def scenarios(self):
         assert U.GetForegroundWindow() == self.target, ("Focus stolen before click", U.GetForegroundWindow(), self.target, self.keyboard.native.hwnd)
         assert self.keyboard.status.cget('text') == '普通输入', "Status must not display a foreground title"
+        yield from self.hover_buttons()
         yield from self.click("b")
         self.check("b")
         yield from self.switch_windows()
@@ -130,7 +130,7 @@ class DesktopTest:
             yield 300
         keyboard = self.keyboard
         assert keyboard.numpad_buttons["Numpad7"].cget("text") == "7"
-        assert keyboard.numpad_buttons["NumLock"].cget("background") == keyboard.LOCK_ON_BACKGROUND
+        assert keyboard.button_colors[keyboard.numpad_buttons["NumLock"]] == keyboard.LOCK_ON_BACKGROUND
         for key, text in [("Numpad1", "1"), ("NumpadAdd", "+"), ("Numpad2", "2")]:
             yield from self.click(key)
             self.check(text)
@@ -150,7 +150,7 @@ class DesktopTest:
         keyboard.client.send("key", (), "NumLock")
         yield 400
         assert keyboard.lock_states["ScrollLock"] != before
-        color = keyboard.extended_buttons["ScrollLock"].cget("background")
+        color = keyboard.button_colors[keyboard.extended_buttons["ScrollLock"]]
         assert (color == keyboard.LOCK_ON_BACKGROUND) == keyboard.lock_states["ScrollLock"]
         assert keyboard.numpad_buttons["Numpad7"].cget("text") == "7"
         self.count += 3
@@ -159,6 +159,25 @@ class DesktopTest:
         assert keyboard.lock_timer is None
         assert not keyboard.numpad_buttons["NumLock"].winfo_ismapped()
         self.count += 2
+
+    def hover_buttons(self):
+        keyboard = self.keyboard
+        status = keyboard.status
+        for button in [keyboard.buttons["b"], keyboard.buttons["language"], keyboard.toolbar_buttons["extended"]]:
+            U.SetCursorPos(status.winfo_rootx() + 5, status.winfo_rooty() + 5)
+            yield 80
+            background, foreground = button.cget("background"), button.cget("foreground")
+            U.SetCursorPos(button.winfo_rootx() + button.winfo_width() // 2,
+                           button.winfo_rooty() + button.winfo_height() // 2)
+            yield 80
+            assert button.cget("background") == keyboard.hover_color(background)
+            assert button.cget("foreground") == foreground, "Hover must preserve foreground color"
+            if button is keyboard.buttons["language"]:
+                self.capture("screen-keyboard-hover.png")
+            U.SetCursorPos(status.winfo_rootx() + 5, status.winfo_rooty() + 5)
+            yield 80
+            assert button.cget("background") == background, "Leaving restores the current base color"
+            self.count += 3
 
     def switch_windows(self):
         for hwnd in [int(sys.argv[4]), self.target] * 3:
