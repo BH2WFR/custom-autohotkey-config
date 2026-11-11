@@ -74,8 +74,11 @@ class ScreenKeyboardTests {
         this.Result := root "\tmp\screen-keyboard-test.txt"
         if FileExist(this.Result)
             FileDelete(this.Result)
+        numLock := GetKeyState("NumLock", "T"), scrollLock := GetKeyState("ScrollLock", "T")
         try ImeApi().WithClosed(this.Window.Hwnd, ObjBindMethod(this, "Desktop", python, root))
         finally {
+            SetNumLockState(numLock)
+            SetScrollLockState(scrollLock)
             this.Keyboard.Stop()
             this.Window.Destroy()
             this.OtherWindow.Destroy()

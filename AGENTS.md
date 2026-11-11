@@ -111,6 +111,8 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 - 托盘“重置钩子”由 `HotkeySession` 协调控制器收尾并调用 `NativeHotkeys.ResetHooks()` 强制重装键盘/鼠标钩子，保留开关与暂停状态，不重复注册热键。
 - 屏幕键盘使用 tkinter 复刻 macOS RDP 六行布局，Layer 和修饰键支持单次保留、长按锁定；Windows 非激活窗口不抢焦点，输入经 `actions/screen_keyboard.ahk` 转交 `hotkeys/virtual_keyboard.ahk` 复用注册表及分发器，暂停和关闭清理会话，AHK 退出或重载时关闭所属 Python 窗口。
 - 屏幕键盘不显示或持续监听前台窗口，切换应用不隐藏键盘；操作键盘时核对目标，目标变化则清理上一窗口的按键状态。
+- 屏幕键盘默认 512×197，无最小化按钮；置顶界面显示后再次置前，屏幕键盘提升 Z 序但不抢输入焦点，普通 GUI 同时激活。
+- “更多”展开右侧数字小键盘及下方单行特殊键；仅展开时每 250 ms 读取锁定键状态，有变化才刷新，NumLock 决定小键盘标签及发送的数字/导航键。
 - 同一 AHK 宿主的 Python 屏幕键盘以 Windows 命名互斥量保证单实例；重复启动等待原窗口就绪，通知其移到鼠标附近后退出新进程。
 - ctypes 原生窗口回调只将命令入队，由阻塞等待的工作线程交给 Tk 主线程，禁止在原生回调中直接调用 Tk。
 - `tests/test_screen_keyboard.ahk` 启动独立编辑窗口及 Python 键盘，通过真实鼠标点击验证四层、修饰键、应用分流、重复触发、Once 吞键和焦点保持。

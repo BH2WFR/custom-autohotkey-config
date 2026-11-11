@@ -82,6 +82,18 @@ class WindowInspectorTests {
             this.Assert(ProcessTools.FileInfo(data.Path).Version != "", "Executable file version")
             actions.Open({Hwnd: target.Hwnd})
             view := actions.View, handle := view.Handle
+            blocker := Gui("+AlwaysOnTop", "Inspector topmost regression")
+            try {
+                blocker.Show("w300 h100 NA")
+                view.Show()
+                order := WinGetList()
+                for hwnd in order {
+                    if hwnd == handle || hwnd == blocker.Hwnd {
+                        this.Assert(hwnd == handle, "Reopened inspector is above an existing topmost window")
+                        break
+                    }
+                }
+            } finally blocker.Destroy()
             this.Assert(actions.Data.Hwnd == target.Hwnd && view.Fields["标题"].Value == target.Title, "Captures original target before showing GUI")
             this.Assert(view.Info.GetCount() == 25 && InStr(view.Fields["命令行"].Value, "test_window_inspector.ahk"), "Opening immediately loads process details")
             this.Assert(view.ControlList.GetCount() == 1 && view.ControlList.GetText(1) == WindowInspectorView.ControlsPrompt,

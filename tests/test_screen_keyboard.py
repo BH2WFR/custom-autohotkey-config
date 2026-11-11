@@ -8,6 +8,8 @@ import faulthandler
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "py"))
 from gui.screen_keyboard import ScreenKeyboard
+from gui.keyboard_layout import DEFAULT_SIZE
+from utils.keyboard_state import LockKeyState
 from utils.nonactivating_window import U
 
 U.SetCursorPos.argtypes = [C.c_int, C.c_int]
@@ -29,7 +31,7 @@ class DesktopTest:
         self.cursor = W.POINT()
         U.GetCursorPos(C.byref(self.cursor))
         self.keyboard = ScreenKeyboard(int(sys.argv[1]))
-        self.keyboard.window.geometry("640x246+80+360")
+        self.keyboard.window.geometry("%dx%d+80+360" % DEFAULT_SIZE)
         self.expected = ""
         self.sent = []
         original_send = self.keyboard.client.send
@@ -60,7 +62,9 @@ class DesktopTest:
         self.count += 2
 
     def click(self, key, duration=60):
-        button = self.keyboard.buttons.get(key) or self.keyboard.extended_buttons[key]
+        button = (self.keyboard.buttons.get(key) or self.keyboard.toolbar_buttons.get(key)
+                  or self.keyboard.numpad_buttons.get(key)
+                  or self.keyboard.extended_buttons[key])
         U.SetCursorPos(button.winfo_rootx() + button.winfo_width() // 2,
                        button.winfo_rooty() + button.winfo_height() // 2)
         U.mouse_event(MOUSE_DOWN, 0, 0, 0, 0)
@@ -113,6 +117,48 @@ class DesktopTest:
         yield 150
         assert not self.keyboard.held and not self.keyboard.locked, "Host reset clears latched keys"
         self.count += 1
+
+        yield from self.click("language")
+        self.check("[tap]")
+        yield from self.numpad()
+
+    def numpad(self):
+        yield from self.click("extended")
+        yield 300
+        if not LockKeyState.read()["NumLock"]:
+            yield from self.click("NumLock")
+            yield 300
+        keyboard = self.keyboard
+        assert keyboard.numpad_buttons["Numpad7"].cget("text") == "7"
+        assert keyboard.numpad_buttons["NumLock"].cget("background") == keyboard.LOCK_ON_BACKGROUND
+        for key, text in [("Numpad1", "1"), ("NumpadAdd", "+"), ("Numpad2", "2")]:
+            yield from self.click(key)
+            self.check(text)
+        yield from self.click("NumLock")
+        yield 300
+        assert not LockKeyState.read()["NumLock"]
+        assert keyboard.numpad_buttons["Numpad7"].cget("text") == "Home"
+        assert keyboard.numpad_buttons["NumpadDot"].cget("text") == "Del"
+        yield from self.click("Numpad4")
+        yield from self.click("NumpadDot")
+        self.expected = self.expected[:-1]
+        self.check("")
+        self.count += 5
+        # 外部改变锁定键，界面无需点击便同步。
+        before = LockKeyState.read()["ScrollLock"]
+        keyboard.client.send("key", (), "ScrollLock")
+        keyboard.client.send("key", (), "NumLock")
+        yield 400
+        assert keyboard.lock_states["ScrollLock"] != before
+        color = keyboard.extended_buttons["ScrollLock"].cget("background")
+        assert (color == keyboard.LOCK_ON_BACKGROUND) == keyboard.lock_states["ScrollLock"]
+        assert keyboard.numpad_buttons["Numpad7"].cget("text") == "7"
+        self.count += 3
+        self.capture("screen-keyboard-extended.png")
+        yield from self.click("extended")
+        assert keyboard.lock_timer is None
+        assert not keyboard.numpad_buttons["NumLock"].winfo_ismapped()
+        self.count += 2
 
     def switch_windows(self):
         for hwnd in [int(sys.argv[4]), self.target] * 3:

@@ -9,6 +9,8 @@ LONG_PTR = C.c_ssize_t
 WNDPROC = C.WINFUNCTYPE(LONG_PTR, W.HWND, W.UINT, W.WPARAM, W.LPARAM)
 GWLP_WNDPROC = -4
 GWL_EXSTYLE = -20
+GWL_STYLE = -16
+WS_MINIMIZEBOX = 0x00020000
 WS_EX_NOACTIVATE = 0x08000000
 WS_EX_TOOLWINDOW = 0x00000080
 WM_MOUSEACTIVATE = 0x0021
@@ -17,8 +19,12 @@ WM_SHOW_KEYBOARD = 0x8002
 MA_NOACTIVATE = 3
 GA_ROOT = 2
 SW_SHOWNOACTIVATE = 4
-SW_MINIMIZE = 6
+SWP_NOSIZE = 0x0001
+SWP_NOMOVE = 0x0002
 SWP_NOACTIVATE = 0x0010
+SWP_FRAMECHANGED = 0x0020
+HWND_TOP = 0
+HWND_TOPMOST = -1
 MONITOR_DEFAULTTONEAREST = 2
 PER_MONITOR_AWARE_V2 = -4
 CURSOR_GAP = 12
@@ -65,6 +71,8 @@ class NonactivatingWindow:
         root.withdraw()
         root.attributes("-disabled", False)
         self.hwnd = U.GetAncestor(root.winfo_id(), GA_ROOT)
+        style = U.GetWindowLongPtrW(self.hwnd, GWL_STYLE)
+        U.SetWindowLongPtrW(self.hwnd, GWL_STYLE, style & ~WS_MINIMIZEBOX)
         style = U.GetWindowLongPtrW(self.hwnd, GWL_EXSTYLE)
         U.SetWindowLongPtrW(self.hwnd, GWL_EXSTYLE,
                            style | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW)
@@ -104,6 +112,9 @@ class NonactivatingWindow:
         self.root.update_idletasks()
         U.ShowWindow(self.hwnd, SW_SHOWNOACTIVATE)
         self.place_near_cursor()
+        # 显示和定位后再提升 Z 序，盖过已存在的置顶窗口，保留输入目标焦点。
+        U.SetWindowPos(self.hwnd, W.HWND(HWND_TOP), 0, 0, 0, 0,
+                       SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED)
 
     def place_near_cursor(self) -> None:
         # 在同一 DPI 上下文中读取鼠标、外框及工作区，兼容副屏负坐标和混合缩放。
@@ -126,12 +137,9 @@ class NonactivatingWindow:
                 y = point.y - height - CURSOR_GAP
             x = max(work.left, min(x, work.right - width))
             y = max(work.top, min(y, work.bottom - height))
-            U.SetWindowPos(self.hwnd, W.HWND(-1), x, y, width, height, SWP_NOACTIVATE)
+            U.SetWindowPos(self.hwnd, W.HWND(HWND_TOPMOST), x, y, width, height, SWP_NOACTIVATE)
         finally:
             U.SetThreadDpiAwarenessContext(previous)
-
-    def minimize(self) -> None:
-        U.ShowWindow(self.hwnd, SW_MINIMIZE)
 
     def close(self) -> None:
         self.closed = True

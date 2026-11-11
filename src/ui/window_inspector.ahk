@@ -79,6 +79,8 @@ class WindowInspectorView {
     Show() {
         this.Gui.Show(this.Shown ? "" : "w" WindowInspectorView.Width " h" WindowInspectorView.Height)
         this.Shown := true
+        WinMoveTop(this.Handle)
+        WinActivate(this.Handle)
     }
 
     SetTopmost(enabled) {
