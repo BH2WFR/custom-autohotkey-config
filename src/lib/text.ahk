@@ -15,6 +15,7 @@ class TextTransforms {
 
     static Wrap(text, prefix, suffix) => prefix text suffix
     static ChangeCase(text, upper) => upper ? StrUpper(text) : StrLower(text)
+    static TitleCase(text) => StrTitle(text)
     static Accessor(text, get) => (get ? "get" : "set") StrUpper(SubStr(text, 1, 1)) SubStr(text, 2)
 
     static Unquote(text) {

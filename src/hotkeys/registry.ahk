@@ -6,7 +6,7 @@ class HotkeyRegistry {
     }
 
     Layers(key, layerMaps*) => this._Layers("", key, "layers", layerMaps*)
-    Continuous(key, layerMaps*) => this._Layers("", key, "continuous", layerMaps*)
+    Once(key, layerMaps*) => this._Layers("", key, "once", layerMaps*)
     Pass(key, callback) => this._Pass("", key, callback)
     App(winTitle) => HotkeyRegistry.Scope(this, winTitle)
 
@@ -19,6 +19,10 @@ class HotkeyRegistry {
             this.Registry._Layers(this.WinTitle, key, "layers", layerMaps*)
             return this
         }
+        Once(key, layerMaps*) {
+            this.Registry._Layers(this.WinTitle, key, "once", layerMaps*)
+            return this
+        }
         Pass(key, callback) {
             this.Registry._Pass(this.WinTitle, key, callback)
             return this
@@ -28,7 +32,7 @@ class HotkeyRegistry {
     _Layers(scope, key, mode, layerMaps*) {
         if !layerMaps.Length
             throw ValueError("Layers 至少需要一个层。")
-        binding := this._Binding(scope, key, mode)
+        binding := this._Binding(scope, key, "layers")
         for entry in layerMaps {
             if !(entry is Map) || entry.Count != 1
                 throw ValueError("每层使用一个 Map(layer, callback)。")
@@ -39,7 +43,7 @@ class HotkeyRegistry {
                     throw TypeError("热键动作必须可以调用。")
                 if binding.Actions.Has(layer)
                     throw ValueError("重复注册：" key "，层 " layer)
-                binding.Actions[layer] := callback
+                binding.Actions[layer] := {Mode: mode, Callback: callback}
             }
         }
         return this
@@ -51,7 +55,7 @@ class HotkeyRegistry {
         binding := this._Binding(scope, key, "pass")
         if binding.Actions.Has(0)
             throw ValueError("重复注册穿透热键：" key)
-        binding.Actions[0] := callback
+        binding.Actions[0] := {Mode: "pass", Callback: callback}
         return this
     }
 
@@ -94,9 +98,7 @@ class HotkeyRegistry {
 
     _Select(binding, layer) {
         index := binding.Mode == "pass" ? 0 : layer
-        return binding.Actions.Has(index)
-            ? {Mode: binding.Mode, Callback: binding.Actions[index]}
-            : false
+        return binding.Actions.Has(index) ? binding.Actions[index] : false
     }
 
     MatchWindow(winTitle, hwnd) => hwnd && WinExist(winTitle " ahk_id " hwnd)

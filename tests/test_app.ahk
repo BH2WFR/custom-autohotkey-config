@@ -8,6 +8,9 @@
 #Include ../src/lib/text.ahk
 #Include ../src/lib/editing.ahk
 #Include ../src/lib/window.ahk
+#Include ../src/lib/window_info.ahk
+#Include ../src/lib/process.ahk
+#Include ../src/lib/shell.ahk
 #Include ../src/lib/ime.ahk
 #Include ../src/lib/mouse.ahk
 #Include ../src/lib/touchpad.ahk
@@ -26,8 +29,11 @@
 #Include ../src/hotkeys/dispatcher.ahk
 #Include ../src/hotkeys/triggers.ahk
 #Include ../src/hotkeys/keyboard_hook.ahk
+#Include ../src/hotkeys/virtual_keyboard.ahk
 #Include ../src/actions/diagnosis.ahk
 #Include ../src/actions/screen_keyboard.ahk
+#Include ../src/actions/personal_scripts.ahk
+#Include ../src/actions/unicode_inspector.ahk
 #Include ../src/actions/settings.ahk
 #Include ../src/actions/application.ahk
 #Include ../src/actions/mouse.ahk
@@ -37,6 +43,9 @@
 #Include ../src/actions/middle_drag.ahk
 #Include ../src/actions/xbuttons.ahk
 #Include ../src/actions/window.ahk
+#Include ../src/actions/window_inspector.ahk
+#Include ../src/actions/keyboard.ahk
+#Include ../src/actions/paths.ahk
 #Include ../src/actions/clipboard.ahk
 #Include ../src/actions/text.ahk
 #Include ../src/actions/ime.ahk
@@ -49,11 +58,15 @@
 #Include ../src/rules/editing.ahk
 #Include ../src/rules/caps_policy.ahk
 #Include ../src/rules/hotkeys.ahk
+#Include ../src/rules/paths.ahk
 #Include ../src/rules/mouse.ahk
 #Include ../src/rules/wheel.ahk
 #Include ../src/rules/middle_drag.ahk
 #Include ../src/rules/tray.ahk
 #Include ../src/ui/tray.ahk
+#Include ../src/ui/popup_menu.ahk
+#Include ../src/ui/window_picker.ahk
+#Include ../src/ui/window_inspector.ahk
 #Include ../src/core/app.ahk
 
 class AppTests {
@@ -81,11 +94,21 @@ class AppTests {
     static Run() {
         App.Start(this.Directory, A_ScriptDir "\..")
         OnExit(ObjBindMethod(this, "Cleanup"))
+        if A_Args.Length && A_Args[1] == "--keyboard-only" {
+            this.ScreenKeyboard()
+            App.Session.SetPaused(true)
+            this.Assert(!App.VirtualKeyboard.Enabled, "Pause disables screen keyboard input")
+            App.Session.SetPaused(false)
+            this.Assert(App.VirtualKeyboard.Enabled, "Resume enables screen keyboard input")
+            App.Stop()
+            FileAppend("PASS: " this.Count " screen keyboard app assertions`n", "*", "UTF-8")
+            return
+        }
         this.Assert(InStr(A_IconFile, "MainIcon.ico"), "Normal icon loaded")
-        this.Assert(A_TrayMenu.Default == "屏幕键盘", "Default tray action")
-        for id in ["f1", "xbuttons", "reverse"]
+        this.Assert(A_TrayMenu.Default == "&Open", "Default tray action opens native AHK window")
+        for id in ["f1", "mouse", "config", "readConfig"]
             this.Assert(App.Tray.Entries[id].Menu == A_TrayMenu, "Frequent toggle stays at root: " id)
-        for id in ["mouse", "transparency", "autorun", "config", "readConfig", "ime/chineseToggle/api", "remote/F1"]
+        for id in ["xbuttons", "reverse", "transparency", "autorun", "ime/chineseToggle/api", "remote/F1"]
             this.Assert(App.Tray.Entries[id].Menu != A_TrayMenu, "Settings are in submenus: " id)
         this.Assert(this.MenuHas(A_TrayMenu, "&Open") && this.MenuHas(A_TrayMenu, "&Window Spy")
             && this.MenuHas(A_TrayMenu, "&Reload Script") && this.MenuHas(A_TrayMenu, "E&xit"), "Native AHK tools and lifecycle entries retained")
@@ -160,7 +183,7 @@ class AppTests {
 
         this.MouseCleanup()
         this.AutorunShortcut()
-        this.BlankKeyboard()
+        this.ScreenKeyboard()
         this.PythonArguments()
         this.Transparency()
         this.ReloadSettings()
@@ -247,6 +270,7 @@ class AppTests {
         try {
             this.Assert(App.Registry.Resolve("s", 1, window.Hwnd) && !App.Registry.Resolve("s", 2, window.Hwnd), "Screen keyboard only occupies global first layer")
             this.Assert(!App.Registry.Resolve("w", 1, window.Hwnd), "Anki styles do not capture ordinary windows")
+            this.Assert(App.Registry.Resolve("e", 1, window.Hwnd) && !App.Registry.Resolve("e", 2, window.Hwnd), "Outside Anki E opens native directory menu only on layer one")
             this.Assert(App.Registry.Resolve("q", 4, window.Hwnd).Mode == "pass", "Outside Anki Q falls back to modifier-preserving Esc")
             this.Assert(App.Registry.Resolve("a", 1, window.Hwnd).Mode == "layers", "Outside Anki A retains default lock toggle")
             this.Assert(App.Registry.Resolve("t", 3, window.Hwnd).Mode == "layers", "Outside Anki T retains third-layer accessor")
@@ -321,12 +345,28 @@ class AppTests {
         this.Assert(!startup.Enabled, "Shortcut removed from isolated test directory")
     }
 
-    static BlankKeyboard() {
+    static ScreenKeyboard() {
         pid := App.ScreenKeyboard.Open()
         hwnd := WinWait("ahk_pid " pid,, 10)
         this.Assert(hwnd, "Tkinter keyboard window opens")
+        ready := DllCall("OpenEventW", "UInt", 0x100000, "Int", false,
+            "Str", "Local\custom-autohotkey-config.screen-keyboard." A_ScriptHwnd ".ready", "Ptr")
+        try this.Assert(ready && DllCall("WaitForSingleObject", "Ptr", ready, "UInt", 5000) == 0, "Keyboard publishes its ready window")
+        finally {
+            if ready
+                DllCall("CloseHandle", "Ptr", ready)
+        }
         this.Assert(InStr(WinGetTitle("ahk_id " hwnd), "屏幕键盘"), "Keyboard window title")
         this.Assert(App.ScreenKeyboard.Open() == pid, "Repeated menu action reuses window")
+        WinMove(10, 10,,, "ahk_id " hwnd)
+        WinMinimize("ahk_id " hwnd)
+        duplicate := App.Python.Launch(App.Root "\py\main.py", ["screen-keyboard", "--host", A_ScriptHwnd], App.Root)
+        this.Assert(!ProcessWaitClose(duplicate, 10), "Duplicate Python process exits")
+        Sleep(200)
+        this.Assert(ProcessExist(pid) && WinExist("ahk_id " hwnd), "Original Python process and window survive")
+        this.Assert(WinGetMinMax("ahk_id " hwnd) != -1, "Duplicate launch restores the original window")
+        WinGetPos(&x, &y,,, "ahk_id " hwnd)
+        this.Assert(x != 10 || y != 10, "Duplicate launch repositions the original window near the cursor")
         App.ScreenKeyboard.Stop()
         this.Assert(!ProcessWaitClose(pid, 5), "Python GUI closes on shutdown")
         pid := App.ScreenKeyboard.Open()

@@ -1,5 +1,7 @@
 ﻿; 使用 AHK 原生 hook 热键，只监听别名、已注册功能键和待收尾的修饰键。
 class HotkeyInput {
+    static ExitMenuLoopMessage := 0x0212
+    static DeferredCleanup := -1
     __New(state, registry, dispatcher, triggers, aliases, tap) {
         this.State := state
         this.Registry := registry
@@ -9,10 +11,13 @@ class HotkeyInput {
         this.Tap := tap
         this.Native := NativeHotkeys()
         this.Enabled := true
+        this.MenuExitCallback := ObjBindMethod(this, "MenuExited")
+        this.ReconcileCallback := ObjBindMethod(this, "ReconcileReleased")
     }
 
     Start() {
         InstallKeybdHook()
+        OnMessage(HotkeyInput.ExitMenuLoopMessage, this.MenuExitCallback)
         for key in this.Aliases {
             condition := ObjBindMethod(this, "AliasEnabled", key)
             this._Register("*" key, ObjBindMethod(this, "AliasDown", key), condition)
@@ -36,12 +41,24 @@ class HotkeyInput {
     }
 
     Stop() {
+        OnMessage(HotkeyInput.ExitMenuLoopMessage, this.MenuExitCallback, 0)
+        SetTimer(this.ReconcileCallback, 0)
         this.Triggers.Cancel()
         this.Native.Stop()
     }
 
     ResetInput() {
         this.Triggers.Cancel()
+        this.ReconcileReleased()
+    }
+
+    MenuExited(*) {
+        ; 原生菜单循环退出后再收尾，同样覆盖托盘菜单。
+        SetTimer(this.ReconcileCallback, HotkeyInput.DeferredCleanup)
+    }
+
+    ; 原生菜单结束或重置钩子时补齐遗漏的 KeyUp，不触发轻按动作。
+    ReconcileReleased() {
         ; 已松开的残留记录直接收尾，仍按住的键必须先松开。
         for key in this.Triggers.Held.Clone() {
             if !GetKeyState(key, "P")
@@ -80,7 +97,9 @@ class HotkeyInput {
     CanHandle(key, *) {
         if this.State.Captured.Has(key)
             return true
-        if !this.Enabled || !this.State.Active
+        if this.State.Blocked.Has(key)
+            return true
+        if !this.Enabled || !this.State.Held.Count
             return false
         layer := LayerState.LayerOf(KeyboardSender.ReadModifiers())
         hwnd := WinExist("A")
@@ -119,6 +138,12 @@ class HotkeyInput {
         ; Dispatcher 只保护短状态转换；动作回调保持可中断。
         if this.State.Captured.Has(key)
             return
+        ; 一次性动作结束层后仍吸收匹配键，直到最后一个别名物理松开。
+        if !this.State.Active {
+            if this.State.Held.Count
+                this.State.Capture(key)
+            return
+        }
         modifiers := KeyboardSender.ReadModifiers()
         hwnd := WinExist("A")
         if !this.Triggers.AllowsLayer(hwnd)

@@ -14,6 +14,7 @@
 #Include ../src/actions/text.ahk
 #Include ../src/actions/pointer.ahk
 #Include ../src/actions/window.ahk
+#Include ../src/utils/tooltip.ahk
 
 class EditingTests {
     static Count := 0
@@ -47,6 +48,7 @@ class EditingTests {
         this.Assert(TextTransforms.Indent("a`r`nb") == "    a`r`n    b", "Multiline indent")
         this.Assert(TextTransforms.Indent("    a`n`tb", true) == "a`nb", "Space/tab unindent")
         this.Assert(TextTransforms.Unquote('"x"') == "x", "v2 final-character index")
+        this.Assert(TextTransforms.TitleCase("hELLO wORLD`n中文 tEST") == "Hello World`n中文 Test", "Legacy per-word title case across lines")
         this.Assert(TextTransforms.Accessor("helloWorld", true) == "getHelloWorld", "Getter uses first character")
         this.Assert(TextTransforms.Accessor("helloWorld", false) == "setHelloWorld", "Setter uses first character")
         this.Assert(TextTransforms.AdvancedPaste('"C:\folder\file"') == "C:/folder/file", "CMake path without dialog")
@@ -66,6 +68,8 @@ class EditingTests {
         saved := ClipboardAll()
         caps := GetKeyState("CapsLock", "T")
         this.Window := Gui(, "Editing verification")
+        this.Tooltip := TooltipPresenter()
+        this.Windows := WindowActions(this.Tooltip)
         this.Edit := this.Window.AddEdit("w600 h240 Multi WantTab")
         this.Window.Show()
         try {
@@ -81,8 +85,13 @@ class EditingTests {
             sender := KeyboardSender(), clip := ClipboardService(sender)
             ime := ImeApi()
             editor := TextEditor(sender, clip), typer := TextTyper(sender, ime)
-            text := TextActions(editor, clip, sender), actions := ClipboardActions(clip, typer, sender)
+            text := TextActions(editor, clip, sender, this.Tooltip), actions := ClipboardActions(clip, typer, sender, this.Tooltip)
             context := {Hwnd: this.Window.Hwnd}
+            if A_Args.Length && A_Args[1] == "--typing" {
+                this.Typing(actions, context, ime)
+                FileAppend("PASS: " this.Count " typing assertions`n", "*", "UTF-8")
+                return
+            }
             A_Clipboard := "clipboard sentinel"
             this.SetText("Hello")
             text.Wrap(context)
@@ -156,22 +165,12 @@ class EditingTests {
             this.SetText("")
             text.Accessor(true)
             this.Equals("getWindowTitle", "Getter typing")
-            sample := 'aAzZ09 !{}\"' "`t`r`n中文한글😀"
-            imeWindow := ime.Window(this.Window.Hwnd)
-            imeBefore := imeWindow ? ime.Control(imeWindow, ImeApi.GetOpenStatus) : false
-            for locked in [false, true] {
-                SetCapsLockState(locked)
-                Sleep(this.CapsSettleDelay)
-                this.SetText("")
-                typer.Type(sample)
-                this.Equals(sample, "ASCII scan codes and Unicode text; CapsLock=" locked)
-                if imeWindow
-                    this.Assert(ime.Control(imeWindow, ImeApi.GetOpenStatus) == imeBefore, "Typing restores IME state")
-            }
+            this.Typing(actions, context, ime)
             SetCapsLockState(caps)
             this.WindowOperations()
         } finally {
-            WindowActions.Stop()
+            this.Windows.Stop()
+            this.Tooltip.Hide()
             SetCapsLockState(caps)
             A_Clipboard := saved
             this.Window.Destroy()
@@ -179,9 +178,33 @@ class EditingTests {
         FileAppend("PASS: " this.Count " editing assertions`n", "*", "UTF-8")
     }
 
+    static Typing(actions, context, ime) {
+        sample := 'aAzZ09 ,.;:!?{}\"' "`t`r`n中文한글😀"
+        imeWindow := ime.Window(this.Window.Hwnd)
+        imeBefore := imeWindow ? ime.Control(imeWindow, ImeApi.GetOpenStatus) : false
+        for locked in [false, true] {
+            SetCapsLockState(locked)
+            Sleep(this.CapsSettleDelay)
+            for second in [false, true] {
+                A_Clipboard := second ? "main clipboard sentinel" : sample
+                actions.Second := second ? sample : "unused second clipboard"
+                this.SetText("")
+                actions.Type(second, context)
+                this.Equals(sample, "Typing action sends ASCII/Unicode; CapsLock=" locked ", second=" second)
+                this.Assert(A_Clipboard == (second ? "main clipboard sentinel" : sample), "Typing action preserves main clipboard")
+                if imeWindow
+                    this.Assert(ime.Control(imeWindow, ImeApi.GetOpenStatus) == imeBefore, "Typing action restores IME state")
+            }
+        }
+    }
+
     static WindowOperations() {
         context := {Hwnd: this.Window.Hwnd}
         target := "ahk_id " context.Hwnd
+        this.Windows.ToggleTopmost(context)
+        this.Assert(WinGetExStyle(target) & WindowTools.TopmostStyle, "Real window becomes topmost")
+        this.Windows.ToggleTopmost(context)
+        this.Assert(!(WinGetExStyle(target) & WindowTools.TopmostStyle), "Repeated action removes topmost")
         for opacity in WindowTools.OpacityLevels {
             WindowTools.CycleOpacity(context.Hwnd)
             actual := WinGetTransparent(target)
@@ -190,13 +213,50 @@ class EditingTests {
         WinSetTransparent(150, target)
         WindowTools.CycleOpacity(context.Hwnd)
         this.Assert(WinGetTransparent(target) == "", "Arbitrary opacity resets to opaque")
-        WindowActions.TogglePassThrough(context)
+        this.Windows.TogglePassThrough(context)
         this.Assert(WinGetExStyle(target) & WindowTools.TransparentStyle, "Window pass-through enabled")
-        WindowActions.TogglePassThrough(context)
+        this.Windows.TogglePassThrough(context)
         this.Assert(!(WinGetExStyle(target) & WindowTools.TransparentStyle), "Remembered window pass-through disabled")
-        WindowActions.Center(true, context)
+        this.Windows.Center(true, context)
         geometry := WindowGeometry.Measure(context.Hwnd)
         this.Assert(geometry.Width > 0 && geometry.Height > 0, "DPI-aware window reset completes")
+        this.ProtectedWindows(context)
+    }
+
+    static ProtectedWindows(context) {
+        target := "ahk_id " context.Hwnd
+        this.Assert(!WindowGroups.Matches(WindowGroups.WindowFixed, context.Hwnd), "Ordinary GUI is not protected")
+        this.Windows.TogglePassThrough(context)
+        GroupAdd(WindowGroups.WindowFixed, target)
+        this.Windows.TogglePassThrough(context)
+        this.Assert(!this.Windows.PassHwnd && !(WinGetExStyle(target) & WindowTools.TransparentStyle),
+            "Existing pass-through can still be cleared for a protected target")
+        style := WinGetExStyle(target)
+        alpha := WinGetTransparent(target)
+        this.Windows.ToggleTopmost(context)
+        this.Assert(WinGetExStyle(target) == style, "Protected window topmost remains unchanged")
+        this.AssertBlockedTip()
+        this.Tooltip.Hide()
+        this.Windows.CycleOpacity(context)
+        this.Assert(WinGetTransparent(target) == alpha, "Protected window opacity cycle is blocked")
+        this.AssertBlockedTip()
+        this.Tooltip.Hide()
+        value := WindowActions.AdjustTransparency(-20, context.Hwnd)
+        this.Assert(!IsNumber(value) && WinGetTransparent(target) == alpha, "Protected window wheel transparency is blocked")
+        this.Windows.TogglePassThrough(context)
+        this.Assert(!this.Windows.PassHwnd && WinGetExStyle(target) == style, "Protected window cannot enter pass-through")
+        this.AssertBlockedTip()
+        ; 真实系统窗口只验证分类，动作验证使用上面的独立 GUI。
+        for className in ["Shell_TrayWnd", "Shell_SecondaryTrayWnd", "Progman", "WorkerW"] {
+            for hwnd in WinGetList("ahk_exe explorer.exe ahk_class " className)
+                this.Assert(WindowGroups.Matches(WindowGroups.WindowFixed, hwnd), "System shell window protected: " className)
+        }
+    }
+
+    static AssertBlockedTip() {
+        hwnd := WinExist("ahk_class tooltips_class32 ahk_pid " DllCall("GetCurrentProcessId"))
+        this.Assert(hwnd && WinGetTitle("ahk_id " hwnd) == "不可以调整这个窗口`n" this.Window.Title,
+            "Blocked operation displays a native tooltip with the target title")
     }
 }
 try {

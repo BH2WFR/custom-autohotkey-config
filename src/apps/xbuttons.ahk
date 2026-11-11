@@ -7,19 +7,27 @@ class XButtonActions {
     static DefaultKeys := ["!{Left}", "!{Right}"]
     static RawKeys := ["{XButton1}", "{XButton2}"]
     static DesktopKeys := ["^#{Left}", "^#{Right}"]
-    static AltShiftKeys := ["!+{Left}", "!+{Right}"]
-    static AnkiEditorKeys := ["^r", "{F13}"]
-    static AnkiKeys := ["^+d", "e"]
-    static CadKeys := ["{Esc}", "{Enter}"]
-    static ImageKeys := ["{Left}", "{Right}"]
-    static SiYuanKeys := ["^{[}", "^{]}"]
     static ParentAltUp := "!{Up}"
     static ParentBackspace := "{Backspace}"
+    static TipDuration := 600
+    static NavigationTips := ["后退", "前进"]
+    static RawTips := ["发送后退侧键", "发送前进侧键"]
+    static DesktopTips := ["切换到左侧桌面", "切换到右侧桌面"]
+    static ParentTip := "返回上级目录"
+    ; 按顺序匹配窗口组，发送内容和提示由同一条规则决定。
+    static Rules := [
+        {Group: WindowGroups.NavigationAltShift, Keys: ["!+{Left}", "!+{Right}"], Tips: ["后退", "前进"]},
+        {Group: WindowGroups.NavigationNative, Keys: ["{XButton1}", "{XButton2}"], Tips: ["发送后退侧键", "发送前进侧键"]},
+        {Group: WindowGroups.Cad, Keys: ["{Esc}", "{Enter}"], Tips: ["Esc", "Enter"]},
+        {Group: WindowGroups.NavigationBackspace, Keys: ["{Backspace}", ""], Tips: ["返回上级目录", ""]},
+        {Group: WindowGroups.ImageViewer, Keys: ["{Left}", "{Right}"], Tips: ["上一张", "下一张"]},
+        {Group: WindowGroups.SiYuan, Keys: ["^{[}", "^{]}"], Tips: ["后退", "前进"]}]
 
-    __New(sender, caj, powerIso, matches := unset) {
+    __New(sender, caj, powerIso, tooltip, matches := unset) {
         this.Sender := sender
         this.Caj := caj
         this.PowerIso := powerIso
+        this.Tooltip := tooltip
         this.Matches := IsSet(matches) ? matches : ObjBindMethod(WindowGroups, "Matches")
     }
 
@@ -33,40 +41,38 @@ class XButtonActions {
             case XButtonActions.Ignore:
                 return
             case XButtonActions.Desktop:
-                return this.Sender.SendChord(XButtonActions.DesktopKeys[index])
+                return this.Send(XButtonActions.DesktopKeys[index], XButtonActions.DesktopTips[index])
             case XButtonActions.Raw:
                 if this.Matches.Call(WindowGroups.FolderUpAlt, hwnd)
                     && (!this.Matches.Call(WindowGroups.Explorer, hwnd) || !this.OverTaskbar())
-                    keys := XButtonActions.ParentAltUp
+                    return this.Send(XButtonActions.ParentAltUp, XButtonActions.ParentTip)
                 else if this.Matches.Call(WindowGroups.FolderUpBackspace, hwnd)
-                    keys := XButtonActions.ParentBackspace
+                    return this.Send(XButtonActions.ParentBackspace, XButtonActions.ParentTip)
                 else
-                    keys := XButtonActions.RawKeys[index]
-                return this.Sender.SendChord(keys)
+                    return this.Send(XButtonActions.RawKeys[index], XButtonActions.RawTips[index])
         }
         if this.Matches.Call(WindowGroups.CajViewer, hwnd)
-            return this.Caj.Navigate(hwnd, back, allowed)
+            return this.Navigate(this.Caj, hwnd, back, allowed)
         if this.Matches.Call(WindowGroups.PowerIso, hwnd)
-            return this.PowerIso.Navigate(hwnd, back, allowed)
-        if this.Matches.Call(WindowGroups.Anki, hwnd)
-            keys := this.Matches.Call(WindowGroups.AnkiEditor, hwnd) ? XButtonActions.AnkiEditorKeys[index] : XButtonActions.AnkiKeys[index]
-        else if this.Matches.Call(WindowGroups.NavigationAltShift, hwnd)
-            keys := XButtonActions.AltShiftKeys[index]
-        else if this.Matches.Call(WindowGroups.NavigationNative, hwnd)
-            keys := XButtonActions.RawKeys[index]
-        else if this.Matches.Call(WindowGroups.Cad, hwnd)
-            keys := XButtonActions.CadKeys[index]
-        else if this.Matches.Call(WindowGroups.NavigationBackspace, hwnd) {
-            if !back
+            return this.Navigate(this.PowerIso, hwnd, back, allowed)
+        for rule in XButtonActions.Rules {
+            if this.Matches.Call(rule.Group, hwnd) {
+                if rule.Keys[index] != ""
+                    this.Send(rule.Keys[index], rule.Tips[index])
                 return
-            keys := XButtonActions.ParentBackspace
-        } else if this.Matches.Call(WindowGroups.ImageViewer, hwnd)
-            keys := XButtonActions.ImageKeys[index]
-        else if this.Matches.Call(WindowGroups.SiYuan, hwnd)
-            keys := XButtonActions.SiYuanKeys[index]
-        else
-            keys := XButtonActions.DefaultKeys[index]
+            }
+        }
+        this.Send(XButtonActions.DefaultKeys[index], XButtonActions.NavigationTips[index])
+    }
+
+    Send(keys, tip) {
         this.Sender.SendChord(keys)
+        this.Tooltip.Show(tip, XButtonActions.TipDuration)
+    }
+
+    Navigate(action, hwnd, back, allowed) {
+        if action.Navigate(hwnd, back, allowed)
+            this.Tooltip.Show(XButtonActions.NavigationTips[back ? 1 : 2], XButtonActions.TipDuration)
     }
 
     OverTaskbar() {

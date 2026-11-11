@@ -21,6 +21,10 @@ class ImeTests {
         __New() => this.Events := []
         Send(keys) => this.Events.Push(keys)
         Release(keys) => this.Events.Push("release:" keys.Length)
+        RestoreModifiers(modifiers) => 0
+    }
+    class FakeTooltip {
+        Show(text, duration) => this.Text := text
     }
     class FakeApi {
         CurrentLanguage := ImeApi.Chinese
@@ -55,7 +59,7 @@ class ImeTests {
 
     static Run() {
         sender := this.FakeSender(), api := this.FakeApi(), settings := AppSettings.IME()
-        actions := ImeActions(settings, api, sender)
+        actions := ImeActions(settings, api, sender, this.FakeTooltip())
         context := HotkeyContext("F6", Map(), ["F6"], 1)
         for mode, expected in Map("ctrl_space", "^{Space}", "weasel", "^{F20}", "shift", "{Shift}") {
             settings.chineseToggle := mode
@@ -117,7 +121,7 @@ class ImeTests {
         state := LayerState(), sender := this.FakeSender()
         registry := HotkeyRegistry()
         registry.Pass("1", ObjBindMethod(this, "NoAction"))
-        registry.Layers("2", Map(1, ObjBindMethod(this, "NoAction")))
+        registry.Once("2", Map(1, ObjBindMethod(this, "NoAction")))
         dispatcher := HotkeyDispatcher(state, registry, sender)
         router := TriggerRouter(state, sender, ObjBindMethod(this, "Route"))
 
@@ -219,6 +223,11 @@ class ImeTests {
         input.EndAlias("F6", 1, Map())
         this.Assert(this.TapCount == 1 && !state.Held.Count, "Paused input still completes release without IME action")
         input.SetEnabled(true)
+        router.Down("F6", 1)
+        state.Capture("e")
+        state.Consume(Map())
+        input.ReconcileReleased()
+        this.Assert(this.TapCount == 1 && state.Phase == "Idle" && !router.Held.Count && !state.Captured.Count, "Menu close clears missed key-up events without toggling IME")
         router.Down("F6", 1)
         state.Captured["2"] := true
         input.ResetInput()

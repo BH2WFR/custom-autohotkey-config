@@ -4,6 +4,7 @@ class LayerState {
         this.Phase := "Idle"
         this.Held := Map()
         this.Captured := Map()
+        this.Blocked := Map()
         this.Used := false
     }
 
@@ -24,8 +25,10 @@ class LayerState {
             return false
         this.Held.Delete(key)
         unused := !this.Held.Count && this.Active && !this.Used
-        if !this.Held.Count
+        if !this.Held.Count {
             this.Phase := "Idle"
+            this.Blocked.Clear()
+        }
         return unused
     }
 
@@ -42,9 +45,11 @@ class LayerState {
             this.Captured.Delete(key)
     }
 
-    Consume(modifiers) {
+    Consume(modifiers, key := "") {
         this.Used := true
         this.Phase := this.Held.Count ? "Spent" : "Idle"
+        if key != "" && this.Held.Count
+            this.Blocked[key] := true
         for key, down in modifiers {
             if down
                 this.Captured[key] := true

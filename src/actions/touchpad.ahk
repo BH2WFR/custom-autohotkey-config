@@ -6,11 +6,13 @@ class TouchpadActions {
     static FrameDelay := 10
     static SmallDistance := 100
     static LargeDistance := 250
-    static DistanceChange := 120
+    static DistanceChange := 60
     static EdgeMargin := 2
+    static TipDuration := 500
 
-    __New(injection) {
+    __New(injection, tooltip) {
         this.Injection := injection
+        this.Tooltip := tooltip
         this.Enabled := true
         this.Busy := false
         this.Active := false
@@ -41,11 +43,12 @@ class TouchpadActions {
                 if this.Cancelled
                     return false
                 this.End(TouchInjection.Up)
-                return true
             } finally {
                 try this.End(TouchInjection.Cancel)
                 finally this.Injection.Restore(position)
             }
+            this.Tooltip.Show(direction == TouchpadActions.ZoomIn ? "模拟触控板放大" : "模拟触控板缩小", TouchpadActions.TipDuration)
+            return true
         } finally this.Busy := false
     }
 

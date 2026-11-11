@@ -17,14 +17,19 @@ class HotkeyDispatcher {
                 return false
             this.State.Capture(key)
             context.Mode := binding.Mode
-            if binding.Mode == "layers" {
-                this.State.Consume(context.Modifiers)
+            if binding.Mode == "once"
+                this.State.Consume(context.Modifiers, key)
+            if binding.Mode != "pass" {
                 this.Sender.Release(context.Triggers)
             }
         } finally {
             Critical(previousCritical)
         }
-        binding.Callback.Call(context)
+        try binding.Callback.Call(context)
+        finally {
+            if binding.Mode == "layers" && context.RestoreModifiers && this.State.Phase != "Spent"
+                this.Sender.RestoreModifiers(context.LogicalModifiers)
+        }
         return true
     }
 
@@ -47,5 +52,6 @@ class HotkeyContext {
         this.Title := ""
         this.Process := ""
         this.LogicalModifiers := Map()
+        this.RestoreModifiers := true
     }
 }

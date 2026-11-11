@@ -29,6 +29,16 @@ class KeyboardSender {
     ; Blind 防止发送后恢复已经强制松开的物理修饰键。
     Send(keys, *) => this._Send("{Blind}" keys)
 
+    RestoreModifiers(modifiers) {
+        keys := ""
+        for key, down in modifiers {
+            if down && GetKeyState(key, "P") && !GetKeyState(key)
+                keys .= "{" key " down}"
+        }
+        if keys != ""
+            this.Send(keys)
+    }
+
     Text(value, *) => this.Send("{Text}" value)
 
     ToggleLock(key, *) {

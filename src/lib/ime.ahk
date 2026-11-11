@@ -9,6 +9,7 @@ class ImeApi {
     static SetOpenStatus := 0x0006
     static AbortIfHung := 0x0002
     static MessageTimeout := 200
+    static RestoreDelay := 50
     static GuiInfoSize := 8 + 6 * A_PtrSize + 16
     static FocusOffset := 8 + A_PtrSize
 
@@ -53,8 +54,11 @@ class ImeApi {
                 this.Control(imeWindow, ImeApi.SetOpenStatus, false)
             return action.Call()
         } finally {
-            if opened
+            if opened {
+                ; SendEvent 返回时目标窗口可能尚未处理完输入，过早恢复会让 IME 吞掉扫描码。
+                Sleep(ImeApi.RestoreDelay)
                 this.Control(imeWindow, ImeApi.SetOpenStatus, opened)
+            }
         }
     }
 

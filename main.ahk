@@ -11,6 +11,9 @@
 #Include src/lib/text.ahk
 #Include src/lib/editing.ahk
 #Include src/lib/window.ahk
+#Include src/lib/window_info.ahk
+#Include src/lib/process.ahk
+#Include src/lib/shell.ahk
 #Include src/lib/ime.ahk
 #Include src/lib/mouse.ahk
 #Include src/lib/touchpad.ahk
@@ -30,8 +33,11 @@
 #Include src/hotkeys/dispatcher.ahk
 #Include src/hotkeys/triggers.ahk
 #Include src/hotkeys/keyboard_hook.ahk
+#Include src/hotkeys/virtual_keyboard.ahk
 #Include src/actions/diagnosis.ahk
 #Include src/actions/screen_keyboard.ahk
+#Include src/actions/personal_scripts.ahk
+#Include src/actions/unicode_inspector.ahk
 #Include src/actions/settings.ahk
 #Include src/actions/application.ahk
 #Include src/actions/mouse.ahk
@@ -41,6 +47,9 @@
 #Include src/actions/middle_drag.ahk
 #Include src/actions/xbuttons.ahk
 #Include src/actions/window.ahk
+#Include src/actions/window_inspector.ahk
+#Include src/actions/keyboard.ahk
+#Include src/actions/paths.ahk
 #Include src/actions/clipboard.ahk
 #Include src/actions/text.ahk
 #Include src/actions/ime.ahk
@@ -53,11 +62,15 @@
 #Include src/rules/editing.ahk
 #Include src/rules/caps_policy.ahk
 #Include src/rules/hotkeys.ahk
+#Include src/rules/paths.ahk
 #Include src/rules/mouse.ahk
 #Include src/rules/wheel.ahk
 #Include src/rules/middle_drag.ahk
 #Include src/rules/tray.ahk
 #Include src/ui/tray.ahk
+#Include src/ui/popup_menu.ahk
+#Include src/ui/window_picker.ahk
+#Include src/ui/window_inspector.ahk
 #Include src/core/app.ahk
 
 Startup.RequireAdmin()

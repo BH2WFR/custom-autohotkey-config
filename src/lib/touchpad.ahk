@@ -11,6 +11,10 @@ class TouchInjection {
     static InfoSize := A_PtrSize == 8 ? 144 : 136
     static LocationOffset := 16 + 2 * A_PtrSize
     static FlagsOffset := 12
+    static TouchMaskOffset := A_PtrSize == 8 ? 100 : 92
+    static ContactOffset := A_PtrSize == 8 ? 104 : 96
+    static ContactAreaMask := 0x1
+    static ContactRadius := 2
     static PerMonitorV2 := -4
     static NearestMonitor := 2
     static MonitorInfoSize := 40
@@ -51,6 +55,11 @@ class TouchInjection {
             NumPut("UInt", TouchInjection.TouchType, "UInt", id, packet, offset)
             NumPut("UInt", flags, packet, offset + TouchInjection.FlagsOffset)
             NumPut("Int", point.X, "Int", point.Y, packet, offset + TouchInjection.LocationOffset)
+            ; 沿用旧版的有效接触面积；零面积会扩大 Chromium 的点按容差，误判小幅缩放。
+            NumPut("UInt", TouchInjection.ContactAreaMask, packet, offset + TouchInjection.TouchMaskOffset)
+            radius := TouchInjection.ContactRadius
+            NumPut("Int", point.X - radius, "Int", point.Y - radius,
+                "Int", point.X + radius, "Int", point.Y + radius, packet, offset + TouchInjection.ContactOffset)
         }
         return packet
     }

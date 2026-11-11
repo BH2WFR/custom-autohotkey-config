@@ -19,7 +19,8 @@ class RemoteTests {
         Send(keys) => this.Events.Push(keys)
         Release(keys) => this.Releases++
     }
-    static Matches(name, hwnd) => name == "RemoteDesktop" && hwnd == 7
+    static Matches(name, hwnd) => (name == WindowGroups.RemoteDesktop && hwnd == 7)
+        || (name == WindowGroups.VirtualMachine && hwnd == 9)
     static Assert(value, message) {
         this.Count++
         if !value
@@ -36,6 +37,23 @@ class RemoteTests {
     }
 
     static Run() {
+        for mode in ["CapsLock", "F1", "F24", "layer"] {
+            for alias in ["CapsLock", "F1", "F24", "F6"] {
+                this.Reset(mode)
+                this.Assert(this.Policy.Resolve(alias, 9) == mode, "VM aliases share remote desktop setting")
+                this.Router.Down(alias, 9)
+                if mode == "layer"
+                    this.Assert(this.State.Active && !this.Sender.Events.Length, "VM supports local layer mode")
+                else {
+                    this.Assert(!this.State.Active && !this.Router.AllowsLayer(9), "VM forwarding bypasses local layer")
+                    this.Settings.capsMode := "layer"
+                }
+                this.Router.Up(alias)
+                if mode != "layer"
+                    this.Assert(this.Sender.Events[1] == "{" mode " down}" && this.Sender.Events[2] == "{" mode " up}",
+                        "VM forwarding preserves paired destination after settings change")
+            }
+        }
         for mode in ["CapsLock", "F1", "F24"] {
             this.Reset(mode)
             this.Assert(this.Policy.Resolve("CapsLock", 8) == "layer", "Ordinary windows retain the local layer")
@@ -102,6 +120,12 @@ class RemoteTests {
             this.Assert(policy.Resolve("CapsLock", window.Hwnd) == "F1", "Real window group is used by default matcher")
             this.Assert(policy.Resolve("CapsLock", 0) == "layer", "Missing foreground window has no remote match")
         } finally window.Destroy()
+        vmWindow := Gui(, "VM classifier test")
+        vmWindow.Show("NA w240 h80")
+        try {
+            GroupAdd(WindowGroups.VirtualMachine, "ahk_id " vmWindow.Hwnd)
+            this.Assert(policy.Resolve("F24", vmWindow.Hwnd) == "F1", "Real VM window group uses remote route")
+        } finally vmWindow.Destroy()
         FileAppend("PASS: " this.Count " remote routing assertions" Chr(10), "*", "UTF-8")
     }
 }

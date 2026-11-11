@@ -14,14 +14,18 @@ class AnkiStyles {
         "sz_large", "#^{F13}",
         "bg_yl", "!{F13}",
         "bg_lm", "^!{F13}",
-        "bg_cy", "^!+{F13}",
-        "bg_gm", "") ; 图中未指定快捷键。
+        "bg_cy", "^!+{F13}")
 
-    __New(sender) {
+    static TipDuration := 600
+    __New(sender, tooltip) {
         this.Sender := sender
+        this.Tooltip := tooltip
     }
 
-    Clear(*) => this.Sender.Send("^r")
+    Clear(*) {
+        this.Sender.Send("^r")
+        this.Tooltip.Show("Anki：清除格式", AnkiStyles.TipDuration)
+    }
 
     ; Caps 分发器负责窗口匹配及修饰键释放，Blind 发送不恢复已释放的修饰键。
     Send(style, *) {
@@ -29,5 +33,6 @@ class AnkiStyles {
         if keys == ""
             return
         this.Sender.Send(keys)
+        this.Tooltip.Show("Anki：" style, AnkiStyles.TipDuration)
     }
 }

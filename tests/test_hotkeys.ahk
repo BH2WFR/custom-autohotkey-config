@@ -31,11 +31,13 @@ class HotkeyTests {
         __New() {
             this.Calls := 0
             this.Triggers := []
+            this.Restores := 0
         }
         Release(triggers) {
             this.Calls++
             this.Triggers := triggers.Clone()
         }
+        RestoreModifiers(modifiers) => this.Restores++
     }
 
     class Display {
@@ -100,8 +102,9 @@ class HotkeyTests {
         this.Assert(KeyboardSender.ReadModifiers("").Count == 8, "读取八个逻辑修饰键时省略 GetKeyState 模式参数")
         this.LayersAndAliases()
         this.SparseBindings()
+        this.MixedLayerModes()
         this.Passthrough()
-        this.Continuous()
+        this.Repeated()
         this.ApplicationRules()
         this.FailureCleanup()
         this.Diagnostics()
@@ -112,7 +115,7 @@ class HotkeyTests {
         for modifiers in [Map(), Map("LShift", 1), Map("RAlt", 1), Map("RShift", 1, "LAlt", 1)] {
             this.Reset()
             expected := A_Index
-            this.Registry.Layers("2",
+            this.Registry.Once("2",
                 Map(1, ObjBindMethod(this, "CleanAction")), Map(2, ObjBindMethod(this, "CleanAction")),
                 Map(3, ObjBindMethod(this, "CleanAction")), Map(4, ObjBindMethod(this, "CleanAction")))
             this.State.AliasDown("F6")
@@ -161,6 +164,25 @@ class HotkeyTests {
         this.Throws(ObjBindMethod(this.Registry, "Layers", "4", Map(1, callback, 2, callback)), "每个 Map 必须只有一层")
     }
 
+    static MixedLayerModes() {
+        this.Reset()
+        callback := ObjBindMethod(this, "Action")
+        this.Registry.Once("7", Map(1, callback))
+        this.Registry.Layers("7", Map(2, callback))
+        this.State.AliasDown("F6")
+        shifted := HotkeyContext("7", Map("LShift", 1), this.State.Triggers())
+        this.Dispatcher.Dispatch("7", shifted)
+        this.Assert(this.State.Active && this.Events[-1].Mode == "layers", "第二层保留会话")
+        this.State.KeyUp("7")
+        this.Dispatcher.Dispatch("7", shifted)
+        this.Assert(this.Events.Length == 2 && this.State.Active, "第二层可连续执行")
+        this.State.KeyUp("7")
+        this.Dispatcher.Dispatch("7", HotkeyContext("7", Map(), this.State.Triggers()))
+        this.Assert(this.State.Phase == "Spent" && this.Events[-1].Mode == "once", "同一按键第一层结束会话")
+        this.Throws(ObjBindMethod(this.Registry, "Once", "7", Map(2, callback)), "跨模式重复层仍报错")
+        this.Throws(ObjBindMethod(this.Registry, "Pass", "7", callback), "穿透不能混合分层绑定")
+    }
+
     static Passthrough() {
         this.Reset()
         this.Registry.Pass("1", ObjBindMethod(this, "Action"))
@@ -182,12 +204,12 @@ class HotkeyTests {
         this.Reset()
         callback := ObjBindMethod(this, "Action")
         this.Registry.Pass("1", callback)
-        this.Registry.App("anki").Layers("1", Map(1, ObjBindMethod(this, "CleanAction")))
+        this.Registry.App("anki").Once("1", Map(1, ObjBindMethod(this, "CleanAction")))
         this.State.AliasDown("F6")
         this.Assert(!this.Registry.Resolve("1", 2, 7), "命中应用后缺失层不回退全局穿透")
         this.Assert(this.Registry.Resolve("1", 4, 8).Mode == "pass", "其他应用使用全局穿透")
         this.Dispatcher.Dispatch("1", HotkeyContext("1", Map(), this.State.Triggers(), 7))
-        this.Assert(this.Events[1].Mode == "layers", "应用分流在穿透判定之前")
+        this.Assert(this.Events[1].Mode == "once", "应用分流在穿透判定之前")
     }
 
     static FailureCleanup() {
@@ -195,37 +217,67 @@ class HotkeyTests {
         this.Registry.Layers("2", Map(1, ObjBindMethod(this, "FailAction")))
         this.State.AliasDown("F6")
         this.Throws(ObjBindMethod(this.Dispatcher, "Dispatch", "2", this.Context()), "动作异常传出")
-        this.Assert(this.State.Phase == "Spent" && this.Sender.Calls == 1, "动作异常后仍已清理")
+        this.Assert(this.State.Active && this.Sender.Calls == 1 && this.Sender.Restores == 1, "重复动作异常也恢复修饰键并保留层")
         this.Assert(!A_IsCritical, "动作异常不遗留 Critical")
         this.State.KeyUp("2")
         this.State.AliasUp("F6")
         this.Assert(this.State.Phase == "Idle", "异常后的松键仍正常")
     }
 
-    static Continuous() {
+    static Repeated() {
         this.Reset()
-        this.Registry.Continuous("WheelUp", Map(1, ObjBindMethod(this, "Action")), Map(2, ObjBindMethod(this, "Action")))
+        this.Registry.Layers("WheelUp", Map(1, ObjBindMethod(this, "Action")), Map(2, ObjBindMethod(this, "Action")))
         this.State.AliasDown("F6")
         for modifiers in [Map(), Map("LShift", true), Map()] {
             this.Assert(this.Dispatcher.Dispatch("WheelUp", this.Context(modifiers)), "连续滚轮可按当前 Shift 状态选择动作")
             this.State.KeyUp("WheelUp")
         }
-        this.Assert(this.State.Active && this.State.Used && this.Sender.Calls == 0, "连续滚轮标记已使用但不消费 Caps 会话")
+        this.Assert(this.State.Active && this.State.Used && this.Sender.Calls == 3 && this.Sender.Restores == 3, "默认分层动作每次释放并恢复修饰键，不消费 Caps 会话")
         this.Assert(this.Events[2].Layer == 2 && this.Events[3].Layer == 1, "同一会话中可切换横向和纵向")
         this.Assert(!this.Registry.Resolve("WheelUp", 3), "连续滚轮不占用未声明的 Alt 层")
         this.Assert(!this.State.AliasUp("F6"), "连续滚轮后的 Caps 松开不切换输入法")
         this.Assert(NativeHotkeys.IsPulse("WheelUp") && !NativeHotkeys.IsPulse("2"), "滚轮没有 KeyUp 事件")
         this.Reset()
-        this.Registry.Continuous("WheelUp", Map(1, ObjBindMethod(this, "Action")))
+        this.Registry.Layers("WheelUp", Map(1, ObjBindMethod(this, "Action")))
         this.State.AliasDown("F6")
         router := TriggerRouter(this.State, this.Sender, (*) => "layer")
         input := HotkeyInput(this.State, this.Registry, this.Dispatcher, router, Map("F6", true), ObjBindMethod(this, "Action"))
         input.KeyPulse("WheelUp")
         input.KeyPulse("WheelUp")
         this.Assert(this.Events.Length == 2 && !this.State.Captured.Has("WheelUp"), "输入适配器连续两次滚轮无需等待 KeyUp")
-        this.Registry.Continuous("WheelDown", Map(1, ObjBindMethod(this, "FailAction")))
+        this.Registry.Layers("WheelDown", Map(1, ObjBindMethod(this, "FailAction")))
         this.Throws(() => input.KeyPulse("WheelDown"), "滚轮动作异常传播")
         this.Assert(!this.State.Captured.Has("WheelDown") && this.State.Active, "滚轮异常也释放脉冲捕获")
+        this.Reset()
+        this.Registry.Pass("q", ObjBindMethod(this, "Action"))
+        this.Registry.Layers("-", Map(1, ObjBindMethod(this, "Action")), Map(2, ObjBindMethod(this, "Action")))
+        this.Registry.Once("2", Map(1, ObjBindMethod(this, "Action")))
+        this.State.AliasDown("F6")
+        for key in ["q", "-", "q", "-"] {
+            this.Assert(this.Dispatcher.Dispatch(key, HotkeyContext(key, Map(), this.State.Triggers())), "保留层动作可交替重复执行")
+            this.State.KeyUp(key)
+        }
+        this.Assert(this.State.Active && this.Sender.Calls == 2, "穿透及默认分层动作均不结束 Caps 会话")
+        this.Dispatcher.Dispatch("2", this.Context())
+        this.Assert(!this.State.Active && this.Sender.Calls == 3, "随后执行一次性动作仍正常释放并结束层")
+        this.State.KeyUp("2")
+        router := TriggerRouter(this.State, this.Sender, (*) => "layer")
+        input := HotkeyInput(this.State, this.Registry, this.Dispatcher, router, Map("F6", true), ObjBindMethod(this, "Action"))
+        this.Assert(input.CanHandle("2"), "一次性动作松开功能键后继续拦截原键")
+        input.KeyDown("2")
+        this.Assert(this.Events.Length == 5 && this.State.Captured.Has("2"), "重复一次性键只吸收，不执行且等待 KeyUp")
+        input.KeyUp("2")
+        this.State.AliasUp("F6")
+        this.Assert(!input.CanHandle("2") && !this.State.Blocked.Count, "Caps 松开后恢复普通按键")
+        this.Reset()
+        this.Registry.Layers("c", Map(1, ObjBindMethod(this, "Action")))
+        this.Registry.App("anki").Layers("c", Map(1, ObjBindMethod(this, "Action")))
+        this.State.AliasDown("F6")
+        loop 2 {
+            this.Dispatcher.Dispatch("c", HotkeyContext("c", Map(), this.State.Triggers(), 7))
+            this.State.KeyUp("c")
+        }
+        this.Assert(this.State.Active && this.Events.Length == 2, "应用专用默认分层动作同样可以重复")
     }
 
     static Diagnostics() {
@@ -233,7 +285,23 @@ class HotkeyTests {
         diagnostics := HotkeyDiagnostics(display)
         registry := HotkeyRegistry()
         actions := this.FakeActions()
-        HotkeyBindings.Register(registry, diagnostics, actions, actions, actions, actions, actions, actions, actions, actions, actions, actions)
+        HotkeyBindings.Register(registry, diagnostics, actions, actions, actions, actions, actions, actions, actions, actions, actions, actions, actions, actions, actions, actions, actions)
+        this.Assert(registry.Resolve("e", 1).Mode == "once" && !registry.Resolve("e", 2), "目录菜单只注册全局第一层且一次性触发")
+        this.Assert(registry.Resolve("s", 1).Mode == "once", "GUI 明确注册为一次性动作")
+        this.Assert(registry.Resolve("w", 1).Mode == "once" && !registry.Resolve("w", 2), "窗口查看器仅注册第一层一次性动作")
+        registry.Matcher := (scope, hwnd) => scope == WindowGroups.Anki && hwnd == 7
+        this.Assert(registry.Resolve("w", 1, 7).Mode == "layers" && !registry.Resolve("w", 2, 7), "Anki W 样式优先，空白层不回退查看器")
+        this.Assert(registry.Resolve("t", 1).Mode == "layers" && !registry.Resolve("t", 2), "窗口置顶可连续切换，第二层未绑定")
+        this.Assert(registry.Resolve("t", 1, 7).Callback != registry.Resolve("t", 1).Callback
+            && !registry.Resolve("t", 2, 7), "Anki T 保留样式动作且空白层不回退")
+        this.Assert(registry.Resolve("7", 1).Mode == "once" && registry.Resolve("7", 2).Mode == "layers"
+            && !registry.Resolve("7", 3) && !registry.Resolve("7", 4), "字符查看器第一层一次性，首字母大写第二层可连续触发")
+        for key in ["x", "c", "v", "z", "Space"]
+            this.Assert(registry.Resolve(key, 1).Mode == "layers", "剪贴板及特殊空格使用默认重复模式")
+        for key in ["-", "="] {
+            this.Assert(registry.Resolve(key, 1).Mode == "layers" && registry.Resolve(key, 2).Mode == "layers", "缩放和横滚使用默认重复模式")
+            this.Assert(!registry.Resolve(key, 3), "连续键未声明的层不降级")
+        }
         for key in ["q", "Tab", "``", "4", "6", "r", "a", "d", "x", "c", "v", "z", "Space", "b", ",", ";", "u", "i", "o", "j", "k", "l", "p", "Backspace", "\", "Enter"]
             this.Assert(registry.Bindings.Has(GetKeyName(key)), "基础热键已注册：" key)
         this.Assert(!registry.Resolve("z", 2) && !registry.Resolve("Tab", 4), "暂缓和空白层保持未注册")

@@ -1,9 +1,11 @@
 ﻿; 主/第二剪贴板的热键动作；基础读写和文本转换由 lib 执行。
 class ClipboardActions {
-    __New(clipboard, typer, sender) {
+    static TipDuration := 600
+    __New(clipboard, typer, sender, tooltip) {
         this.Clipboard := clipboard
         this.Typer := typer
         this.Sender := sender
+        this.Tooltip := tooltip
         this.Second := ""
     }
 
@@ -14,14 +16,19 @@ class ClipboardActions {
         key := cut ? keys.Cut : keys.Copy
         if second {
             selected := this.Clipboard.Read(key, line)
-            if selected.Success
-                this.Second := selected.Text
-        } else if line
-            this.Clipboard.Capture(key, true)
+            if !selected.Success
+                return
+            this.Second := selected.Text
+        } else if line {
+            if !this.Clipboard.Capture(key, true).Success
+                return
+        }
         else
             this.Sender.Send(key)
         if line
             this.Sender.Send("{End 2}")
+        if second || line
+            this.Tooltip.Show((second ? "第二剪贴板：" : "") (cut ? "剪切" : "复制") (line ? "当前行" : ""), ClipboardActions.TipDuration)
     }
 
     Paste(advanced, second, context) {
@@ -32,9 +39,13 @@ class ClipboardActions {
             return
         }
         text := second ? this.Second : A_Clipboard
-        if text == ""
+        if text == "" {
+            this.Tooltip.Show(second ? "第二剪贴板：没有内容" : "粘贴纯文本：剪贴板内容非文本", ClipboardActions.TipDuration)
             return
+        }
         this.Clipboard.Paste(advanced ? TextTransforms.AdvancedPaste(text) : text, keys.Paste)
+        if second
+            this.Tooltip.Show("第二剪贴板：" (advanced ? "高级粘贴" : "粘贴纯文本"), ClipboardActions.TipDuration)
     }
 
     Type(second, context) => this.Typer.Type(second ? this.Second : A_Clipboard, context.Hwnd)

@@ -20,11 +20,16 @@ class XButtonTests {
         SendChord(keys) => this.Events.Push(keys)
     }
     class ClickAction {
+        Succeeded := true
         __New() => this.Events := []
-        Navigate(hwnd, back, allowed) => this.Events.Push([hwnd, back])
+        Navigate(hwnd, back, allowed) {
+            this.Events.Push([hwnd, back])
+            return this.Succeeded
+        }
     }
     class Tooltip {
-        Show(message, duration) => XButtonTests.Calls.Push(message)
+        Messages := []
+        Show(message, duration) => this.Messages.Push(message)
     }
     class ControllerActions {
         CanHandle(hwnd) => true
@@ -39,44 +44,50 @@ class XButtonTests {
     static Matches(name, hwnd) => this.Groups.Has(name)
     static IsAllowed() => this.Allowed
 
-    static Check(groups, back, mode, expected) {
+    static Check(groups, back, mode, expected, tip := "") {
         this.Groups := Map()
         for group in groups
             this.Groups[group] := true
         this.Sender.Events := []
+        this.TooltipOutput.Messages := []
         this.Actions.Execute(1, back, mode, ObjBindMethod(this, "IsAllowed"))
         this.Assert(expected == "" ? !this.Sender.Events.Length
             : this.Sender.Events.Length == 1 && this.Sender.Events[1] == expected,
             "Navigation output: " mode " / " expected)
+        if expected != ""
+            this.Assert(this.TooltipOutput.Messages.Length == 1 && this.TooltipOutput.Messages[1] == tip, "Window-group-specific side-button feedback")
+        else if !this.Groups.Has(WindowGroups.CajViewer) && !this.Groups.Has(WindowGroups.PowerIso)
+            this.Assert(!this.TooltipOutput.Messages.Length, "Inactive or ignored side button has no feedback")
     }
 
     static Run() {
         this.Sender := this.FakeSender()
         this.Caj := this.ClickAction(), this.PowerIso := this.ClickAction()
-        this.Actions := XButtonActions(this.Sender, this.Caj, this.PowerIso, ObjBindMethod(this, "Matches"))
+        this.TooltipOutput := this.Tooltip()
+        this.Actions := XButtonActions(this.Sender, this.Caj, this.PowerIso, this.TooltipOutput, ObjBindMethod(this, "Matches"))
         normal := XButtonActions.Normal, raw := XButtonActions.Raw
-        this.Check([], true, normal, "!{Left}")
-        this.Check([], false, normal, "!{Right}")
-        this.Check([WindowGroups.NavigationAltShift], true, normal, "!+{Left}")
-        this.Check([WindowGroups.NavigationNative], false, normal, "{XButton2}")
-        this.Check([WindowGroups.Anki, WindowGroups.AnkiEditor], true, normal, "^r")
-        this.Check([WindowGroups.Anki, WindowGroups.AnkiEditor], false, normal, "{F13}")
-        this.Check([WindowGroups.Anki], true, normal, "^+d")
-        this.Check([WindowGroups.Anki], false, normal, "e")
-        this.Check([WindowGroups.Cad], true, normal, "{Esc}")
-        this.Check([WindowGroups.Cad], false, normal, "{Enter}")
-        this.Check([WindowGroups.NavigationBackspace], true, normal, "{Backspace}")
+        this.Check([], true, normal, "!{Left}", "后退")
+        this.Check([], false, normal, "!{Right}", "前进")
+        this.Check([WindowGroups.NavigationAltShift], true, normal, "!+{Left}", "后退")
+        this.Check([WindowGroups.NavigationNative], false, normal, "{XButton2}", "发送前进侧键")
+        this.Check([WindowGroups.Anki, WindowGroups.AnkiEditor], true, normal, "!{Left}", "后退")
+        this.Check([WindowGroups.Anki, WindowGroups.AnkiEditor], false, normal, "!{Right}", "前进")
+        this.Check([WindowGroups.Anki], true, normal, "!{Left}", "后退")
+        this.Check([WindowGroups.Anki], false, normal, "!{Right}", "前进")
+        this.Check([WindowGroups.Cad], true, normal, "{Esc}", "Esc")
+        this.Check([WindowGroups.Cad], false, normal, "{Enter}", "Enter")
+        this.Check([WindowGroups.NavigationBackspace], true, normal, "{Backspace}", "返回上级目录")
         this.Check([WindowGroups.NavigationBackspace], false, normal, "")
-        this.Check([WindowGroups.ImageViewer], true, normal, "{Left}")
-        this.Check([WindowGroups.ImageViewer], false, normal, "{Right}")
-        this.Check([WindowGroups.SiYuan], true, normal, "^{[}")
-        this.Check([WindowGroups.SiYuan], false, normal, "^{]}")
-        this.Check([], true, raw, "{XButton1}")
-        this.Check([WindowGroups.Cad], false, raw, "{XButton2}")
-        this.Check([WindowGroups.FolderUpAlt], true, raw, "!{Up}")
-        this.Check([WindowGroups.FolderUpBackspace], false, raw, "{Backspace}")
-        this.Check([], true, XButtonActions.Desktop, "^#{Left}")
-        this.Check([], false, XButtonActions.Desktop, "^#{Right}")
+        this.Check([WindowGroups.ImageViewer], true, normal, "{Left}", "上一张")
+        this.Check([WindowGroups.ImageViewer], false, normal, "{Right}", "下一张")
+        this.Check([WindowGroups.SiYuan], true, normal, "^{[}", "后退")
+        this.Check([WindowGroups.SiYuan], false, normal, "^{]}", "前进")
+        this.Check([], true, raw, "{XButton1}", "发送后退侧键")
+        this.Check([WindowGroups.Cad], false, raw, "{XButton2}", "发送前进侧键")
+        this.Check([WindowGroups.FolderUpAlt], true, raw, "!{Up}", "返回上级目录")
+        this.Check([WindowGroups.FolderUpBackspace], false, raw, "{Backspace}", "返回上级目录")
+        this.Check([], true, XButtonActions.Desktop, "^#{Left}", "切换到左侧桌面")
+        this.Check([], false, XButtonActions.Desktop, "^#{Right}", "切换到右侧桌面")
         this.Check([], true, XButtonActions.Ignore, "")
         for mode in [normal, raw, XButtonActions.Desktop]
             this.Check([WindowGroups.XButtonPassthrough], true, mode, "")
@@ -84,12 +95,18 @@ class XButtonTests {
         this.Check([], true, normal, "")
         this.Allowed := true
         this.Check([WindowGroups.CajViewer], true, normal, "")
+        this.Assert(this.TooltipOutput.Messages[1] == "后退", "CAJ feedback after navigation")
         this.Check([WindowGroups.PowerIso], false, normal, "")
+        this.Assert(this.TooltipOutput.Messages[1] == "前进", "PowerISO feedback after navigation")
         this.Assert(this.Caj.Events.Length == 1 && this.Caj.Events[1][2], "CAJ click direction")
         this.Assert(this.PowerIso.Events.Length == 1 && !this.PowerIso.Events[1][2], "PowerISO click direction")
+        this.PowerIso.Succeeded := false
+        this.Check([WindowGroups.PowerIso], false, normal, "")
+        this.Assert(!this.TooltipOutput.Messages.Length, "Cancelled click sequence has no success feedback")
         this.ClickPlans()
         this.Coordinates()
-        this.Lifecycle()
+        if !(A_Args.Length && A_Args[1] == "--pure")
+            this.Lifecycle()
         FileAppend("PASS: " this.Count " XButton assertions" Chr(10), "*", "UTF-8")
     }
 

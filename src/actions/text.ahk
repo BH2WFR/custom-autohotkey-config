@@ -1,9 +1,11 @@
 ﻿; 文本热键适配层：选取应用策略并调用基础编辑模块。
 class TextActions {
-    __New(editor, clipboard, sender) {
+    static TipDuration := 600
+    __New(editor, clipboard, sender, tooltip) {
         this.Editor := editor
         this.Clipboard := clipboard
         this.Sender := sender
+        this.Tooltip := tooltip
     }
     Indent(remove, context) {
         if !EditingPolicy.CanEditLine(context.Hwnd)
@@ -13,12 +15,22 @@ class TextActions {
     }
     Transform(callback, context) {
         keys := EditingPolicy.Keys(context.Hwnd)
-        this.Editor.Transform(callback, keys.Copy, keys.Paste)
+        return this.Editor.Transform(callback, keys.Copy, keys.Paste)
     }
     Wrap(context) => this.Transform((text) => TextTransforms.Wrap(text, "${", "}"), context)
-    Case(upper, context) => this.Transform((text) => TextTransforms.ChangeCase(text, upper), context)
+    Case(upper, context) {
+        if this.Transform((text) => TextTransforms.ChangeCase(text, upper), context)
+            this.Tooltip.Show(upper ? "选中文本转大写" : "选中文本转小写", TextActions.TipDuration)
+    }
+    TitleCase(context) {
+        if this.Transform(ObjBindMethod(TextTransforms, "TitleCase"), context)
+            this.Tooltip.Show("已将选中文本转为: 首字母大写", TextActions.TipDuration)
+    }
     LineEnding(suffix, newline, *) => this.Editor.LineEnding(suffix, newline)
-    NewLine(above, *) => this.Editor.NewLine(above)
+    NewLine(above, *) {
+        this.Editor.NewLine(above)
+        this.Tooltip.Show(above ? "向上插入一行" : "向下插入一行", TextActions.TipDuration)
+    }
     DeleteLine(*) => this.Editor.DeleteLine()
     DeleteFirstCharacter(*) => this.Editor.DeleteFirstCharacter()
     Accessor(get, *) => this.Sender.Text(TextTransforms.Accessor(A_Clipboard, get))

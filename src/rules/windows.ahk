@@ -23,12 +23,12 @@ class WindowGroups {
     static Taskbar := "Taskbar"
     static AltEnter := "AltEnter"
     static WindowFixed := "WindowFixed"
-    static QDirExecutable := "i)^([0-9]\.)?Q-Dir(_x86|_x64)?(_DM)?\.exe$"
 
     static AnkiExecutable := "anki.exe"
     static AnkiPythonExecutable := "pythonw.exe"
     static AnkiPythonPath := "i)\\AnkiProgramFiles\\"
     static AnkiEditorTitle := "i)^(Add|Edit Current|Browse|添加|编辑当前|浏览)"
+    static VolumePopupExecutable := "SndVol.exe"
 
     ; 名单来自 AHK-SysUtil 的 Global.ahk 和 IO/Switch.ahk。
     static Definitions := Map(
@@ -39,6 +39,7 @@ class WindowGroups {
             "ahk_exe Code.exe", "ahk_exe devenv.exe", "ahk_exe qtcreator.exe", "ahk_exe sublime_text.exe",
             "ahk_exe pycharm64.exe", "ahk_exe idea64.exe", "ahk_exe clion64.exe", "ahk_exe uv4.exe",
             "ahk_exe notepad3.exe", "ahk_exe notepad++.exe", "ahk_exe EmEditor.exe"],
+        ; 沿用 WindowOperation.ahk 的系统组件禁用名单，普通资源管理器窗口不受限。
         WindowGroups.WindowFixed, [
             "ahk_exe ShellExperienceHost.exe", "ahk_exe SearchHost.exe", "ahk_exe SearchApp.exe",
             "ahk_exe explorer.exe ahk_class WorkerW", "ahk_exe explorer.exe ahk_class Progman",
@@ -125,8 +126,12 @@ class WindowGroups {
             }
         }
         try {
-            if name == this.FileManager
-                return RegExMatch(WinGetProcessName("ahk_id " hwnd), this.QDirExecutable)
+            if name == this.WindowFixed {
+                target := "ahk_id " hwnd
+                return WinGetProcessName(target) = this.VolumePopupExecutable && WinGetTitle(target) == ""
+            }
+            ; if name == this.FileManager
+                ; return RegExMatch(WinGetProcessName("ahk_id " hwnd), this.QDirExecutable)
             if name == this.Anki {
                 winTitle := "ahk_id " hwnd
                 process := WinGetProcessName(winTitle)

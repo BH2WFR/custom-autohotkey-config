@@ -6,7 +6,7 @@ class TrayView {
         this.Entries := Map()
         A_TrayMenu.Delete()
         this.Build(A_TrayMenu, items)
-        A_TrayMenu.Default := items[1].Label
+        ; AddStandard 保留原生 Open 作为双击默认动作。
         A_TrayMenu.ClickCount := 2
         this.Refresh()
     }
@@ -29,8 +29,10 @@ class TrayView {
                 this.Entries[item.Id] := {Menu: targetMenu, Item: item}
                 targetMenu.Add(item.Label, ObjBindMethod(this, "Invoke", item.Id), item.HasOwnProp("Radio") ? "Radio" : "")
             }
-            if item.HasOwnProp("Icon")
-                targetMenu.SetIcon(item.Label, this.Root "\res\" item.Icon)
+            if item.HasOwnProp("Icon") {
+                icon := RegExMatch(item.Icon, "i)^(?:[a-z]:[\\/]|\\\\)") ? item.Icon : this.Root "\res\" item.Icon
+                targetMenu.SetIcon(item.Label, icon, item.HasOwnProp("IconIndex") ? item.IconIndex : 1)
+            }
         }
     }
 

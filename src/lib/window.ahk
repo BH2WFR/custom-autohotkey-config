@@ -3,6 +3,7 @@ class WindowTools {
     static MonitorInfoSize := 40
     static WorkAreaOffset := 20
     static TransparentStyle := 0x20
+    static TopmostStyle := 0x8
     static Opaque := 255
     static OpacityLevels := [51, 102, 153, 204, 255]
 
@@ -43,6 +44,11 @@ class WindowTools {
         target := "ahk_id " hwnd
         value := this.NextOpacity(WinGetTransparent(target))
         WinSetTransparent(value == this.Opaque ? "Off" : value, target)
+    }
+    static ToggleTopmost(hwnd) {
+        enabled := !(WinGetExStyle(hwnd) & this.TopmostStyle)
+        WinSetAlwaysOnTop(enabled, hwnd)
+        return !!(WinGetExStyle(hwnd) & this.TopmostStyle)
     }
     static PassThrough(hwnd, enabled, opacity) {
         target := "ahk_id " hwnd

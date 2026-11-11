@@ -3,6 +3,7 @@
 #Include ../src/lib/ime.ahk
 #Include ../src/lib/touchpad.ahk
 #Include ../src/actions/touchpad.ahk
+#Include ../src/utils/tooltip.ahk
 #Include ../src/rules/windows.ahk
 
 ; 使用独立窗口接收真实键盘/触摸输入；需要交互桌面。
@@ -50,7 +51,7 @@ class NativeInputTests {
         window := Gui(, "Native input verification")
         window.AddEdit("w600 h180")
         window.Show("w640 h320")
-        touch := TouchInjection()
+        touch := TouchInjection(), tip := TooltipPresenter()
         saved := false
         try {
             WinActivate("ahk_id " window.Hwnd)
@@ -62,7 +63,7 @@ class NativeInputTests {
                 throw OSError()
             this.Assert(DllCall("RegisterTouchWindow", "Ptr", window.Hwnd, "UInt", 0), "Test window accepts touch input")
             OnMessage(this.TouchMessage, ObjBindMethod(this, "Touch"))
-            gesture := TouchpadActions(touch)
+            gesture := TouchpadActions(touch, tip)
             for direction in [TouchpadActions.ZoomIn, TouchpadActions.ZoomOut] {
                 this.Points := []
                 this.Assert(gesture.Zoom(direction), "Native pinch completes")
@@ -82,7 +83,14 @@ class NativeInputTests {
                 }
                 change := Abs(endValues[2] - endValues[1]) - Abs(startValues[2] - startValues[1])
                 this.Assert(direction * change > 0, "Window received requested pinch direction")
+                this.Assert(Abs(Abs(change) - TouchpadActions.DistanceChange * touch.Position().Scale) <= 1,
+                    "Window receives reduced, DPI-scaled pinch distance")
                 FileAppend("Pinch " direction ": received span change " change " px`n", "*", "UTF-8")
+            }
+
+            if A_Args.Length && A_Args[1] == "--touch-only" {
+                FileAppend("PASS: " this.Count " native touch assertions`n", "*", "UTF-8")
+                return
             }
 
             WindowGroups.Register()
@@ -113,6 +121,7 @@ class NativeInputTests {
                 this.Assert(!GetKeyState("RControl"), "Cleanup still releases a held modifier")
             } finally sender.Send("{RControl up}")
         } finally {
+            tip.Hide()
             if IsObject(saved)
                 touch.Restore(saved)
             window.Destroy()

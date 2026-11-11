@@ -11,10 +11,17 @@ class AppSettings {
         xButtonMapping := 1
         reverseHorizontal := 0
         winWheelTransparency := 1
+        pointerFastStep := 10
+        wheelMultiplier := 5
         CheckValid() {
             for value in [this.xButtonMapping, this.reverseHorizontal, this.winWheelTransparency] {
                 if value != 0 && value != 1
                     return "鼠标开关必须为 0 或 1。"
+            }
+            for name in ["pointerFastStep", "wheelMultiplier"] {
+                value := this.%name%
+                if !(value is Integer) || value < 1
+                    return name " 必须为正整数。"
             }
             return ""
         }
@@ -41,6 +48,11 @@ class AppSettings {
     class Python extends Config.IConfig {
         condaEnvironment := "base"
         CheckValid() => this.condaEnvironment != "" ? "" : "condaEnvironment 不能为空。"
+    }
+
+    class PersonalScripts extends Config.IConfig {
+        launcherPath := ""
+        CheckValid() => this.launcherPath is String ? "" : "launcherPath 必须为字符串。"
     }
 
     class RemoteDesktop extends Config.IConfig {

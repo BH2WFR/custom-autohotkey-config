@@ -1,6 +1,6 @@
 ﻿; 项目鼠标热键声明。
 class MouseBindings {
-    static Register(native, mouse, xbuttons, middleDrag, input, wheel) {
+    static Register(native, mouse, xbuttons, middleDrag, input, wheel, windows) {
         native.Add("MButton", ObjBindMethod(middleDrag, "Down"), ObjBindMethod(middleDrag, "CanHandle"))
         native.Add("*MButton up", ObjBindMethod(middleDrag, "Up"), ObjBindMethod(middleDrag, "IsHeld"))
         for key in [XButtonController.Back, XButtonController.Forward] {
@@ -18,7 +18,7 @@ class MouseBindings {
             native.Add("*" direction, ObjBindMethod(mouse, "Horizontal", direction), ObjBindMethod(mouse, "ReverseEnabled"))
         for key, up in Map("WheelUp", true, "WheelDown", false) {
             capsAvailable := ObjBindMethod(input, "CanHandle", key)
-            native.Add("*" key, ObjBindMethod(WindowActions, "WheelTransparency", up ? WheelPolicy.TransparencyStep : -WheelPolicy.TransparencyStep),
+            native.Add("*" key, ObjBindMethod(windows, "WheelTransparency", up ? WheelPolicy.TransparencyStep : -WheelPolicy.TransparencyStep),
                 ObjBindMethod(WheelPolicy, "Transparency", mouse, capsAvailable))
             native.Add("*" key, ObjBindMethod(wheel, "Volume", up), ObjBindMethod(WheelPolicy, "Taskbar", mouse, capsAvailable))
         }

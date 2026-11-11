@@ -9,6 +9,10 @@
 
 class WheelTouchpadTests {
     static Count := 0
+    class Tooltip {
+        Text := ""
+        Show(text, duration) => this.Text := text
+    }
     class Sender {
         Events := []
         Send(keys) => this.Events.Push(keys)
@@ -38,10 +42,14 @@ class WheelTouchpadTests {
             throw Error(message)
     }
     static Run() {
-        sender := this.Sender(), wheel := WheelActions(MouseSender(sender), sender)
+        settings := {wheelMultiplier: 5}
+        sender := this.Sender(), wheel := WheelActions(MouseSender(sender), sender, this.Tooltip(), settings)
         wheel.CapsScroll(true, {Layer: 1})
         wheel.CapsScroll(false, {Layer: 2})
         this.Assert(sender.Events[1] == "chord:{WheelUp 5}" && sender.Events[2] == "chord:{WheelRight 1}", "Caps scroll temporarily strips modifiers and uses correct step sizes")
+        settings.wheelMultiplier := 8
+        wheel.CapsScroll(false, {Layer: 1})
+        this.Assert(sender.Events[-1] == "chord:{WheelDown 8}", "Caps wheel reads the current configured multiplier")
         wheel.Volume(false)
         this.Assert(sender.Events[-1] == "{Volume_Down}", "Taskbar uses system volume key")
         this.Assert(WheelPolicy.Resolve(true, true, Map("LWin", true), true) == WheelPolicy.Caps, "Caps takes precedence over Win and taskbar")
@@ -67,8 +75,9 @@ class WheelTouchpadTests {
                 }
             }
         }
-        injection := this.Injection(), touchpad := TouchpadActions(injection)
+        tip := this.Tooltip(), injection := this.Injection(), touchpad := TouchpadActions(injection, tip)
         this.Assert(touchpad.Zoom(1), "Complete pinch succeeds")
+        this.Assert(tip.Text == "模拟触控板放大", "Successful zoom shows directional feedback")
         this.Assert(injection.Frames.Length == TouchpadActions.Steps + 2 && injection.Frames[1].Flags == TouchInjection.Down, "Gesture has down, update and up frames")
         this.Assert(injection.Frames[-1].Flags == TouchInjection.Up && injection.Frames[-1].Points == injection.Frames[-2].Points, "Up uses last successful update coordinates")
         this.Assert(injection.Restored && !touchpad.Active && !touchpad.Busy, "Completion restores cursor and controller state")
@@ -76,20 +85,33 @@ class WheelTouchpadTests {
         this.Assert(packet.Size == TouchInjection.Count * TouchInjection.InfoSize, "Native touch packet has architecture-specific size")
         this.Assert(NumGet(packet, 4, "UInt") == 0 && NumGet(packet, TouchInjection.InfoSize + 4, "UInt") == 1
             && NumGet(packet, TouchInjection.FlagsOffset, "UInt") == TouchInjection.Down, "Native pointer IDs remain within initialized contact count")
+        for index, point in injection.Frames[1].Points {
+            offset := (index - 1) * TouchInjection.InfoSize
+            this.Assert(NumGet(packet, offset + TouchInjection.TouchMaskOffset, "UInt") & TouchInjection.ContactAreaMask,
+                "Each contact explicitly supplies its area")
+            left := NumGet(packet, offset + TouchInjection.ContactOffset, "Int")
+            top := NumGet(packet, offset + TouchInjection.ContactOffset + 4, "Int")
+            right := NumGet(packet, offset + TouchInjection.ContactOffset + 8, "Int")
+            bottom := NumGet(packet, offset + TouchInjection.ContactOffset + 12, "Int")
+            this.Assert(left < point.X && point.X < right && top < point.Y && point.Y < bottom,
+                "Nonzero contact rectangle surrounds its physical pointer position")
+        }
 
-        injection := this.Injection(), touchpad := TouchpadActions(injection)
+        tip := this.Tooltip(), injection := this.Injection(), touchpad := TouchpadActions(injection, tip)
         injection.FailAt := 3
         failed := false
         try touchpad.Zoom(-1)
         catch Error
             failed := true
         this.Assert(failed && injection.Frames[-1].Flags == TouchInjection.Cancel, "Update failure cancels contacts")
+        this.Assert(tip.Text == "", "Failed gesture does not show success feedback")
         this.Assert(injection.Frames[-1].Points == injection.Frames[-2].Points && injection.Restored && !touchpad.Active && !touchpad.Busy, "Failure cleanup uses last accepted coordinates and restores state")
 
-        injection := this.Injection(), touchpad := TouchpadActions(injection)
+        tip := this.Tooltip(), injection := this.Injection(), touchpad := TouchpadActions(injection, tip)
         injection.Owner := touchpad
         injection.CancelAt := 2
         this.Assert(!touchpad.Zoom(1), "Pause interrupts active gesture")
+        this.Assert(tip.Text == "", "Cancelled gesture does not show success feedback")
         this.Assert(!touchpad.Enabled && !touchpad.Active && injection.Frames[-1].Flags == TouchInjection.Cancel && injection.Restored, "Pause releases contacts and restores cursor")
         FileAppend("PASS: " this.Count " wheel/touchpad assertions`n", "*", "UTF-8")
     }
