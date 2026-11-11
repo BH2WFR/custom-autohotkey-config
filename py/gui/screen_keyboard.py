@@ -14,6 +14,7 @@ DEFAULT_SIZE = (512, 197)
 MINIMUM_SIZE = (426, 166)
 MODIFIERS = {"LControl", "RControl", "LShift", "RShift", "LAlt", "RAlt", "LWin", "RWin"}
 STICKY_KEYS = MODIFIERS | {"Layer"}
+ACCENT_LOCK_KEYS = {"NumLock", "ScrollLock"}
 ROWS = [
     [("Esc", "Esc", 1)] + [(f"F{i}", f"F{i}", 1) for i in range(1, 13)]
     + [("language", "语言", 1), ("Insert", "Ins", 1), ("Delete", "Del", 1)],
@@ -57,12 +58,14 @@ NUMPAD_NAVIGATION = {
 }
 PALETTE = {"letters": "#aadef6", "symbols": "#ffdc68", "modifiers": "#59c1e7",
            "layer": "#f78bb5", "arrows": "#eba7f4", "navigation": "#99db9d",
-           "commands": "#64cd7c", "language": "#438a62"}
+           "commands": "#64cd7c", "language": "#438a62", "locks": "#e8a07d"}
 
 
 def key_color(name: str) -> str:
     if name == "Layer":
         group = "layer"
+    elif name in ACCENT_LOCK_KEYS:
+        group = "locks"
     elif name in MODIFIERS:
         group = "modifiers"
     elif name in {"Left", "Right", "Up", "Down"}:
@@ -71,10 +74,10 @@ def key_color(name: str) -> str:
         group = "language"
     elif len(name) == 1 and name.isalpha():
         group = "letters"
+    elif name in {"Esc", "Tab", "Enter", "NumpadEnter", "Backspace", "Delete", "Insert", "AppsKey"}:
+        group = "commands"
     elif len(name) == 1 or name in {"Space", "vkE2sc056"} or name.startswith("Numpad"):
         group = "symbols"
-    elif name in {"Esc", "Tab", "Enter", "Backspace", "Delete", "Insert", "AppsKey"}:
-        group = "commands"
     else:
         group = "navigation"
     return PALETTE[group]
@@ -93,6 +96,8 @@ class ScreenKeyboard:
     KEY_FONT = "Segoe UI"
     LOCK_STATE_INTERVAL = 250
     LOCK_ON_BACKGROUND = "#185337"
+    ACCENT_LOCK_ON_BACKGROUND = "#9f4929"
+    ACCENT_LOCK_PRESSED_BACKGROUND = "#f4bd9d"
     EXTRA_ROW_HEIGHT = 30
     NUMPAD_COLUMNS = 4
     NUMPAD_ROWS = 5
@@ -103,6 +108,7 @@ class ScreenKeyboard:
     HOVER_BLEND = 0.35
     DARK_HOVER_BLEND = 0.18
     DARK_THRESHOLD = 128
+    TOGGLE_BACKGROUND = "#34657c"
 
     def __init__(self, host: int) -> None:
         self.target = NonactivatingWindow.foreground()
@@ -118,6 +124,7 @@ class ScreenKeyboard:
         self.pressed = None
         self.timer = None
         self.expanded = False
+        self.numpad_visible = False
         self.closing = False
         self.lock_states = LockKeyState.read()
         self.lock_timer = None
@@ -131,11 +138,15 @@ class ScreenKeyboard:
         self.toolbar = []
         self.toolbar_buttons = {}
         for name, label, action in [("extended", "更多", self.toggle_extended),
+                                    ("numpad", "数字", self.toggle_numpad),
                                     ("reset", "释放", self.reset),
                                     ("size", "复位", self.reset_size)]:
             button = tk.Label(self.window, text=label, background=self.BACKGROUND,
                                font=(self.UI_FONT, 8), cursor="hand2")
             button.bind("<ButtonRelease-1>", lambda event, fn=action: self.perform(fn))
+            if name in {"extended", "numpad"}:
+                button.configure(borderwidth=0, highlightthickness=self.BORDER_WIDTH,
+                                 highlightbackground=self.BORDER_COLOR, highlightcolor=self.BORDER_COLOR)
             self.bind_hover(button)
             self.paint_button(button, self.BACKGROUND, "#202124")
             self.toolbar.append(button)
@@ -286,23 +297,33 @@ class ScreenKeyboard:
 
     def reset_size(self):
         self.expanded = False
-        self.stop_lock_updates()
-        self.window.minsize(*MINIMUM_SIZE)
-        self.window.geometry("%dx%d" % DEFAULT_SIZE)
+        self.numpad_visible = False
+        self.resize_panels(*DEFAULT_SIZE)
 
     def toggle_extended(self):
+        self.window.update_idletasks()
         self.expanded = not self.expanded
+        height = self.window.winfo_height() + (self.EXTRA_ROW_HEIGHT if self.expanded else -self.EXTRA_ROW_HEIGHT)
+        self.resize_panels(self.window.winfo_width(), height)
+
+    def toggle_numpad(self):
+        self.window.update_idletasks()
+        self.numpad_visible = not self.numpad_visible
         ratio = (ROW_UNITS + self.NUMPAD_COLUMNS) / ROW_UNITS
         width = self.window.winfo_width() - self.MARGIN * 2 + self.GAP
-        width = round(width * ratio if self.expanded else width / ratio) + self.MARGIN * 2 - self.GAP
-        height = self.window.winfo_height() + (self.EXTRA_ROW_HEIGHT if self.expanded else -self.EXTRA_ROW_HEIGHT)
-        self.window.minsize(round(MINIMUM_SIZE[0] * ratio) if self.expanded else MINIMUM_SIZE[0],
+        width = round(width * ratio if self.numpad_visible else width / ratio) + self.MARGIN * 2 - self.GAP
+        self.resize_panels(width, self.window.winfo_height())
+
+    def resize_panels(self, width, height):
+        ratio = (ROW_UNITS + self.NUMPAD_COLUMNS) / ROW_UNITS
+        self.window.minsize(round(MINIMUM_SIZE[0] * ratio) if self.numpad_visible else MINIMUM_SIZE[0],
                             MINIMUM_SIZE[1] + (self.EXTRA_ROW_HEIGHT if self.expanded else 0))
         self.window.geometry(f"{width}x{height}")
-        if self.expanded:
+        self.window.update_idletasks()
+        self.stop_lock_updates()
+        if self.expanded or self.numpad_visible:
             self.update_lock_states()
-        else:
-            self.stop_lock_updates()
+        self.refresh()
         self.layout()
 
     def stop_lock_updates(self):
@@ -316,10 +337,13 @@ class ScreenKeyboard:
         if states != self.lock_states:
             self.lock_states = states
             self.refresh()
-        if self.expanded and not self.closing:
+        if (self.expanded or self.numpad_visible) and not self.closing:
             self.lock_timer = self.window.after(self.LOCK_STATE_INTERVAL, self.update_lock_states)
 
     def refresh(self):
+        for name, enabled in [("extended", self.expanded), ("numpad", self.numpad_visible)]:
+            self.paint_button(self.toolbar_buttons[name], self.TOGGLE_BACKGROUND if enabled else self.BACKGROUND,
+                              "white" if enabled else "#202124")
         for name, button in (self.buttons | self.extended_buttons | self.numpad_buttons).items():
             active = name in self.held or name == self.pressed
             locked = name in self.locked
@@ -327,8 +351,9 @@ class ScreenKeyboard:
                 self.paint_button(button, self.LANGUAGE_PRESSED_BACKGROUND if active else key_color(name), "white")
             elif name in LockKeyState.KEYS:
                 enabled = self.lock_states[name]
-                self.paint_button(button, self.DARK_KEY_PRESSED_BACKGROUND if active else
-                                  self.LOCK_ON_BACKGROUND if enabled else key_color(name),
+                on_color = self.ACCENT_LOCK_ON_BACKGROUND if name in ACCENT_LOCK_KEYS else self.LOCK_ON_BACKGROUND
+                pressed_color = self.ACCENT_LOCK_PRESSED_BACKGROUND if name in ACCENT_LOCK_KEYS else self.DARK_KEY_PRESSED_BACKGROUND
+                self.paint_button(button, pressed_color if active else on_color if enabled else key_color(name),
                                   "white" if enabled and not active else "#202124")
             else:
                 self.paint_button(button, self.LOCKED_BACKGROUND if locked else "#34657c" if active else key_color(name),
@@ -347,7 +372,7 @@ class ScreenKeyboard:
         width, height = self.window.winfo_width(), self.window.winfo_height()
         margin, gap, header = self.MARGIN, self.GAP, 25
         extra = self.EXTRA_ROW_HEIGHT if self.expanded else 0
-        unit = (width - margin * 2 + gap) / (ROW_UNITS + self.NUMPAD_COLUMNS if self.expanded else ROW_UNITS)
+        unit = (width - margin * 2 + gap) / (ROW_UNITS + self.NUMPAD_COLUMNS if self.numpad_visible else ROW_UNITS)
         row_height = (height - header - margin - extra) / 6
         toolbar_width = len(self.toolbar) * 37
         self.status.place(x=margin, y=2, width=max(0, width - toolbar_width - margin * 2), height=20)
@@ -373,7 +398,7 @@ class ScreenKeyboard:
         numpad_row = (height - header - margin - extra) / self.NUMPAD_ROWS
         for name, _, column, row, columns, rows in NUMPAD_KEYS:
             button = self.numpad_buttons[name]
-            if self.expanded:
+            if self.numpad_visible:
                 button.place(x=round(margin + (ROW_UNITS + column) * unit),
                              y=round(header + row * numpad_row),
                              width=round(columns * unit - gap), height=round(rows * numpad_row - gap))

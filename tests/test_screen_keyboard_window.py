@@ -29,7 +29,7 @@ class WindowTest:
         keyboard = self.keyboard
         try:
             assert (keyboard.window.winfo_width(), keyboard.window.winfo_height()) == DEFAULT_SIZE
-            assert len(keyboard.toolbar) == 3
+            assert len(keyboard.toolbar) == 4
             assert not U.GetWindowLongPtrW(keyboard.native.hwnd, GWL_STYLE) & WS_MINIMIZEBOX
             assert not hasattr(keyboard, "minimize")
             other_hwnd = U.GetAncestor(self.other.winfo_id(), 2)
@@ -42,12 +42,25 @@ class WindowTest:
                     assert above != other_hwnd, "Keyboard remains behind an existing topmost window"
                     above = U.GetWindow(above, GW_HWNDPREV)
                 assert U.GetForegroundWindow() == foreground, "Keyboard raise changes input focus"
-            keyboard.expanded = True
+            for toggle, more, numpad in [(keyboard.toggle_extended, True, False),
+                                        (keyboard.toggle_numpad, True, True),
+                                        (keyboard.toggle_extended, False, True),
+                                        (keyboard.toggle_numpad, False, False)]:
+                toggle()
+                keyboard.window.update_idletasks()
+                assert bool(keyboard.extended_buttons["PrintScreen"].winfo_ismapped()) == more
+                assert bool(keyboard.numpad_buttons["NumLock"].winfo_ismapped()) == numpad
+                for name, enabled in [("extended", more), ("numpad", numpad)]:
+                    assert (keyboard.button_colors[keyboard.toolbar_buttons[name]] == keyboard.TOGGLE_BACKGROUND) == enabled
+                assert (keyboard.lock_timer is not None) == (more or numpad)
+            assert (keyboard.window.winfo_width(), keyboard.window.winfo_height()) == DEFAULT_SIZE
+            keyboard.toggle_numpad()
+            keyboard.toggle_extended()
             keyboard.reset_size()
             keyboard.window.update_idletasks()
-            assert not keyboard.expanded
+            assert not keyboard.expanded and not keyboard.numpad_visible
             assert (keyboard.window.winfo_width(), keyboard.window.winfo_height()) == DEFAULT_SIZE
-            print("PASS: default/reset size, no minimize button, repeated raise above topmost without changing focus")
+            print("PASS: independent panel toggles, default/reset size, no minimize button, topmost without changing focus")
         except Exception:
             self.error = traceback.format_exc()
         finally:

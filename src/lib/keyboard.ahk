@@ -1,6 +1,8 @@
 ﻿; 系统输入出口；清理不改变 CapsLock 锁定状态，也不释放鼠标按钮。
 class KeyboardSender {
     static ModifierKeys := ["LControl", "RControl", "LShift", "RShift", "LAlt", "RAlt", "LWin", "RWin"]
+    static MenuModifiers := Map("LAlt", true, "RAlt", true, "LWin", true, "RWin", true)
+    static MenuMask := "{vkE8}"
 
     static ReadModifiers(mode := "P") {
         result := Map()
@@ -12,7 +14,7 @@ class KeyboardSender {
     Release(triggers) {
         keys := ""
         if GetKeyState("LAlt") || GetKeyState("RAlt") || GetKeyState("LWin") || GetKeyState("RWin")
-            keys .= "{vkE8}"
+            keys .= KeyboardSender.MenuMask
         ; 已经抬起的键无需重复发送，避免 SendEvent 在每个冗余事件上等待。
         for key in KeyboardSender.ModifierKeys {
             if GetKeyState(key)
@@ -31,10 +33,16 @@ class KeyboardSender {
 
     RestoreModifiers(modifiers) {
         keys := ""
+        maskMenu := false
         for key, down in modifiers {
-            if down && GetKeyState(key, "P") && !GetKeyState(key)
+            if down && GetKeyState(key, "P") && !GetKeyState(key) {
                 keys .= "{" key " down}"
+                maskMenu := maskMenu || KeyboardSender.MenuModifiers.Has(key)
+            }
         }
+        ; 恢复按下后重新屏蔽，避免之后的物理抬起被当成单独 Alt/Win。
+        if maskMenu
+            keys .= KeyboardSender.MenuMask
         if keys != ""
             this.Send(keys)
     }

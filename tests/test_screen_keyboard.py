@@ -123,14 +123,17 @@ class DesktopTest:
         yield from self.numpad()
 
     def numpad(self):
-        yield from self.click("extended")
+        yield from self.click("numpad")
         yield 300
+        assert not self.keyboard.extended_buttons["PrintScreen"].winfo_ismapped()
+        assert self.keyboard.numpad_buttons["NumLock"].winfo_ismapped()
+        self.count += 2
         if not LockKeyState.read()["NumLock"]:
             yield from self.click("NumLock")
             yield 300
         keyboard = self.keyboard
         assert keyboard.numpad_buttons["Numpad7"].cget("text") == "7"
-        assert keyboard.button_colors[keyboard.numpad_buttons["NumLock"]] == keyboard.LOCK_ON_BACKGROUND
+        assert keyboard.button_colors[keyboard.numpad_buttons["NumLock"]] == keyboard.ACCENT_LOCK_ON_BACKGROUND
         for key, text in [("Numpad1", "1"), ("NumpadAdd", "+"), ("Numpad2", "2")]:
             yield from self.click(key)
             self.check(text)
@@ -151,11 +154,18 @@ class DesktopTest:
         yield 400
         assert keyboard.lock_states["ScrollLock"] != before
         color = keyboard.button_colors[keyboard.extended_buttons["ScrollLock"]]
-        assert (color == keyboard.LOCK_ON_BACKGROUND) == keyboard.lock_states["ScrollLock"]
+        assert (color == keyboard.ACCENT_LOCK_ON_BACKGROUND) == keyboard.lock_states["ScrollLock"]
         assert keyboard.numpad_buttons["Numpad7"].cget("text") == "7"
         self.count += 3
+        yield from self.click("extended")
+        assert keyboard.numpad_visible and keyboard.expanded
+        self.count += 1
         self.capture("screen-keyboard-extended.png")
         yield from self.click("extended")
+        assert keyboard.numpad_buttons["NumLock"].winfo_ismapped()
+        assert keyboard.lock_timer is not None
+        self.count += 2
+        yield from self.click("numpad")
         assert keyboard.lock_timer is None
         assert not keyboard.numpad_buttons["NumLock"].winfo_ismapped()
         self.count += 2
@@ -202,7 +212,8 @@ class DesktopTest:
         self.capture("screen-keyboard.png")
         yield from self.click("extended")
         assert self.keyboard.extended_buttons["PrintScreen"].winfo_ismapped()
-        self.count += 1
+        assert not self.keyboard.numpad_buttons["NumLock"].winfo_ismapped()
+        self.count += 2
         self.capture("screen-keyboard-extended.png")
         self.keyboard.reset_size()
         yield 150

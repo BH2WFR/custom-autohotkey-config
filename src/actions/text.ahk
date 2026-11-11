@@ -33,12 +33,22 @@ class TextActions {
     }
     DeleteLine(*) => this.Editor.DeleteLine()
     DeleteFirstCharacter(*) => this.Editor.DeleteFirstCharacter()
-    Accessor(get, *) => this.Sender.Text(TextTransforms.Accessor(A_Clipboard, get))
+    Accessor(get, *) {
+        text := A_Clipboard
+        if text == "" {
+            this.Tooltip.Show("剪贴板为空，未输入函数名", TextActions.TipDuration)
+            return
+        }
+        this.Sender.Text(TextTransforms.Accessor(text, get))
+    }
     Insert(value, context) => this.Clipboard.Paste(value, EditingPolicy.Keys(context.Hwnd).Paste)
     Return(crlf, context) {
-        if EditingPolicy.AltEnter(context.Hwnd)
+        if EditingPolicy.AltEnter(context.Hwnd) {
             this.Sender.Send("!{Enter}")
-        else
+            this.Tooltip.Show("插入换行（Alt+Enter）", TextActions.TipDuration)
+        } else {
             this.Insert(crlf ? "`r`n" : "`n", context)
+            this.Tooltip.Show(crlf ? "输入回车换行符（CRLF）" : "输入换行符（LF）", TextActions.TipDuration)
+        }
     }
 }
