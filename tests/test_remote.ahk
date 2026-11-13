@@ -40,8 +40,8 @@ class RemoteTests {
         for mode in ["CapsLock", "F1", "F24", "layer"] {
             for alias in ["CapsLock", "F1", "F24", "F6"] {
                 this.Reset(mode)
-                expected := alias == "F1" ? "layer" : mode
-                this.Assert(this.Policy.Resolve(alias, 9) == expected, "F1 stays local while other VM aliases use remote setting")
+                expected := mode
+                this.Assert(this.Policy.Resolve(alias, 9) == expected, "All VM aliases use the remote setting")
                 this.Router.Down(alias, 9)
                 if expected == "layer"
                     this.Assert(this.State.Active && this.Router.AllowsLayer(9) && !this.Sender.Events.Length, "Local alias permits layer dispatch in VM")
@@ -58,16 +58,16 @@ class RemoteTests {
         for hwnd in [7, 9] {
             this.Reset("F24")
             this.Router.Down("F1", hwnd)
-            this.Assert(this.State.Active && this.Router.AllowsLayer(hwnd), "F1 enables local layer in remote and VM windows")
+            this.Assert(!this.State.Active && !this.Router.AllowsLayer(hwnd), "F1 uses forwarding in remote and VM windows")
             this.Router.Down("F24", hwnd)
-            this.Assert(this.State.Held.Count == 1 && this.State.Held.Has("F1"), "Forwarded Caps does not join local F1 session")
-            this.Assert(this.Sender.Events.Length == 1 && this.Sender.Events[1] == "{F24 down}", "Caps forwards alongside local F1")
-            this.Assert(this.Router.Up("F1") && !this.Router.AllowsLayer(hwnd), "Unused F1 returns tap and ends local layer")
+            this.Assert(!this.State.Held.Count, "Forwarded aliases do not join the local layer")
+            this.Assert(this.Sender.Events.Length == 1 && this.Sender.Events[1] == "{F24 down}", "F1 and F24 share the forwarding target")
+            this.Assert(!this.Router.Up("F1") && !this.Router.AllowsLayer(hwnd), "Forwarded F1 does not trigger a local tap")
             this.Assert(this.Sender.Events.Length == 1, "F1 release does not release forwarded Caps")
             this.Router.Up("F24")
             this.Assert(this.Sender.Events[2] == "{F24 up}", "Caps forwarding retains paired release")
             this.Router.Down("F1", 8)
-            this.Assert(this.Router.AllowsLayer(hwnd), "F1 remains local when focus moves into remote window")
+            this.Assert(!this.Router.AllowsLayer(hwnd), "F1 stops local dispatch when focus moves into a forwarding window")
             this.Router.Up("F1")
         }
         for mode in ["CapsLock", "F1", "F24"] {

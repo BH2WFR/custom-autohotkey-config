@@ -46,7 +46,7 @@ class ImeTests {
     }
     static NoAction(context) {
     }
-    static Route(key, hwnd) => hwnd == 2 && key != "F1" ? "F1" : "layer"
+    static Route(key, hwnd) => hwnd == 2 ? "F1" : "layer"
     static ImeMessage(command, value, *) {
         switch command {
             case ImeApi.GetOpenStatus:
@@ -237,9 +237,9 @@ class ImeTests {
         input.ResetInput()
         this.Assert(!router.Targets.Count && !router.Held.Count && sender.Events[-1] == "{F1 up}", "Reset releases forwarded remote target")
         router.Down("F1", 2)
-        this.Assert(router.AllowsLayer(2), "F1 permits local layer in a remote window")
+        this.Assert(!router.AllowsLayer(2), "F1 follows forwarding in a remote window")
         input.EndAlias("F1", 2, Map())
-        this.Assert(this.TapCount == 2 && state.Phase == "Idle", "Unused F1 in remote window retains local tap action")
+        this.Assert(this.TapCount == 1 && state.Phase == "Idle", "Forwarded F1 does not invoke the local tap action")
     }
 }
 
