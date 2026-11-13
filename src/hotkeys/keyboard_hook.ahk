@@ -123,8 +123,9 @@ class HotkeyInput {
         context := false
         try {
             triggers := this.State.Triggers()
+            allowed := this.Triggers.AllowsLayer(hwnd)
             unused := this.Triggers.Up(key)
-            if unused && this.Enabled && hwnd && this.Triggers.AllowsLayer(hwnd) {
+            if unused && this.Enabled && hwnd && allowed {
                 context := HotkeyContext(key, modifiers, triggers, hwnd)
                 this.Dispatcher.PrepareTap(context)
             }

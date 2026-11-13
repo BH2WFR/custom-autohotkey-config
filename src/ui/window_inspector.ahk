@@ -13,14 +13,20 @@ class WindowInspectorView {
     Shown := false
 
     __New(commands) {
+        previous := GuiDpi.Enter()
+        try this.Build(commands)
+        finally GuiDpi.Leave(previous)
+    }
+
+    Build(commands) {
         this.Commands := commands
-        this.Gui := Gui("+Resize +MinSize810x400 +AlwaysOnTop", WindowInspectorView.Title)
+        this.Gui := Gui("+Resize -DPIScale +AlwaysOnTop", WindowInspectorView.Title)
         this.Gui.SetFont("s9", "Microsoft YaHei UI")
         this.Gui.OnEvent("Close", (*) => this.Commands["Close"].Call())
         this.Gui.OnEvent("Escape", ObjBindMethod(this, "Escape"))
         this.Finder := this.Gui.AddText("x8 y4 w34 h30 Center +0x100", "◎")
         this.Finder.SetFont("s18", "Segoe UI Symbol")
-        this.Search := this.Gui.AddComboBox("x50 y8 w630")
+        this.Search := this.Gui.AddComboBox("x50 y8 w630 h24")
         this.ListButton := this.Button("刷新列表", "RefreshList", 686, 8, 80)
         this.FindButton := this.Button("查找", "Search", 772, 8, 70, "Default")
         this.Hidden := this.Gui.AddCheckbox("x8 y38 w118 h24", "包含隐藏窗口")
@@ -29,7 +35,7 @@ class WindowInspectorView {
         this.Topmost.OnEvent("Click", (*) => this.SetTopmost(this.Topmost.Value))
         this.Button("刷新信息", "Refresh", 204, 38, 78)
         this.Button("读取控件", "Controls", 288, 38, 78)
-        this.Priority := this.Gui.AddDropDownList("x522 y38 w140 Choose3", WindowInspectorView.Priorities)
+        this.Priority := this.Gui.AddDropDownList("x522 y38 w140 h24 Choose3", WindowInspectorView.Priorities)
         this.Button("设置优先级", "Priority", 668, 38, 100)
         for index, item in [["文件属性", "Properties"], ["打开路径", "OpenPath"], ["激活窗口", "Activate"],
             ["窗口居中", "Center"], ["重置大小", "ResetSize"], ["关闭窗口", "CloseWindow"],
@@ -48,6 +54,8 @@ class WindowInspectorView {
         this.ControlList.OnEvent("DoubleClick", ObjBindMethod(this, "CopyControl"))
         this.Status := this.Gui.AddText("x8 y534 w834 h18", "双击列表项复制")
         this.Picker := WindowPickerView(this.Gui, this.Finder, commands["PickAtCursor"], commands["Pick"], ObjBindMethod(this, "SetStatus"))
+        this.Dpi := GuiDpi(this.Gui, ObjBindMethod(this, "DpiChanged"), 810, 400)
+        this.Dpi.Apply(DllCall("GetDpiForWindow", "Ptr", this.Handle, "UInt"))
         this.Gui.OnEvent("Size", ObjBindMethod(this, "Resize"))
     }
 
@@ -77,8 +85,11 @@ class WindowInspectorView {
     }
 
     Show() {
-        this.Gui.Show(this.Shown ? "" : "w" WindowInspectorView.Width " h" WindowInspectorView.Height)
+        previous := GuiDpi.Enter()
+        try this.Gui.Show(this.Shown ? "" : "w" this.Dpi.Px(WindowInspectorView.Width) " h" this.Dpi.Px(WindowInspectorView.Height))
+        finally GuiDpi.Leave(previous)
         this.Shown := true
+        this.Dpi.FitWindow()
         WinMoveTop(this.Handle)
         WinActivate(this.Handle)
     }
@@ -115,7 +126,7 @@ class WindowInspectorView {
         for row in rows
             this.Info.Add(, row*)
         this.BasicRows := this.Info.GetCount()
-        this.Info.ModifyCol(1, 128), this.Info.ModifyCol(2, "AutoHdr")
+        this.Info.ModifyCol(1, this.Dpi.Px(128)), this.Info.ModifyCol(2, "AutoHdr")
         this.SetStatus("拖动左上角 ◎ 选窗；双击列表项复制")
     }
 
@@ -151,7 +162,7 @@ class WindowInspectorView {
                 b.X ", " b.Y ", " b.Width " × " b.Height)
         }
         for index, width in [45, 100, 100, 190, 100, 170]
-            this.ControlList.ModifyCol(index, width)
+            this.ControlList.ModifyCol(index, this.Dpi.Px(width))
         this.SetStatus("已读取 " controls.Length " 个控件；坐标为屏幕物理像素")
     }
 
@@ -173,28 +184,42 @@ class WindowInspectorView {
 
     Confirm(message) {
         this.Gui.Opt("+OwnDialogs")
-        return MsgBox(message, WindowInspectorView.Title, "YesNo Icon? Default2") == "Yes"
+        previous := GuiDpi.Enter()
+        try return MsgBox(message, WindowInspectorView.Title, "YesNo Icon? Default2") == "Yes"
+        finally GuiDpi.Leave(previous)
+    }
+
+    DpiChanged() {
+        this.Info.ModifyCol(1, this.Dpi.Px(128)), this.Info.ModifyCol(2, "AutoHdr")
+        if this.ControlsLoaded {
+            for index, width in [45, 100, 100, 190, 100, 170]
+                this.ControlList.ModifyCol(index, this.Dpi.Px(width))
+        } else
+            this.ControlList.ModifyCol(1, "AutoHdr")
+        this.Gui.GetClientPos(,, &width, &height)
+        this.Resize(this.Gui, 0, width, height)
     }
 
     Resize(gui, state, width, height) {
         if state == -1
             return
-        margin := WindowInspectorView.Margin, gap := WindowInspectorView.Gap
-        this.Search.Move(,, width - margin - 50 - 162)
-        this.ListButton.Move(width - margin - 156)
-        this.FindButton.Move(width - margin - 70)
+        margin := this.Dpi.Px(WindowInspectorView.Margin), gap := this.Dpi.Px(WindowInspectorView.Gap)
+        this.Search.Move(,, width - margin - this.Dpi.Px(50 + 162))
+        this.ListButton.Move(width - margin - this.Dpi.Px(156))
+        this.FindButton.Move(width - margin - this.Dpi.Px(70))
         for label, field in this.Fields
-            field.Move(,, width - margin - 58)
+            field.Move(,, width - margin - this.Dpi.Px(58))
         usable := width - 2 * margin, left := Round((usable - gap) * 0.4)
-        listHeight := height - WindowInspectorView.ListTop - margin - WindowInspectorView.Row
+        listHeight := height - this.Dpi.Px(WindowInspectorView.ListTop) - margin - this.Dpi.Px(WindowInspectorView.Row)
         this.Info.Move(,, left, listHeight)
         this.ControlList.Move(margin + left + gap,, usable - left - gap, listHeight)
-        this.Status.Move(, height - margin - WindowInspectorView.Row + gap, usable)
+        this.Status.Move(, height - margin - this.Dpi.Px(WindowInspectorView.Row) + gap, usable)
     }
 
     Destroy() {
         this.Picker.Destroy()
         this.Gui.Destroy()
+        this.Dpi.Destroy()
         this.Commands.Clear()
     }
 }

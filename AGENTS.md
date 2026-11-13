@@ -73,7 +73,7 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 - 本项目运行时要将对系统 CPU 的占用降到最低。
 - 可保留简化的关于/设置界面，设置中仅包含开机启动注册、按键映射、进程优先级、打开设置目录等核心功能。
 - 热键默认保留 Layer 会话，松开功能键后可重复或交替触发；分层动作执行前释放系统侧修饰键和触发键，结束或异常时恢复仍按住的原有修饰键，恢复 Alt/Win 后屏蔽单键菜单激活，显式释放按键的动作不恢复。
-- 前台为远程桌面或虚拟机窗口时，所有 Layer 触发键共用 `RemoteDesktop.capsMode`，可发送 CapsLock/F1/F24 或使用本地层。
+- 前台为远程桌面或虚拟机窗口时，F1 始终触发本机 Layer（受 F1 开关控制），其他触发键按 `RemoteDesktop.capsMode` 转发或使用本地层。
 - 保持单一职责原则，不可以为了追求方便而增加代码耦合度。涉及窗口分类、热键注册等有可扩展性的内容，不可以与基础库放到一起。
 - 禁止硬编码的魔鬼数字、魔鬼字符串。应当使用全局变量或类的static变量。
 - 允许破坏性更新，该重构就重构，严禁当不断添加回退或防御性代码的糊裱匠。
@@ -114,6 +114,7 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 - 屏幕键盘使用 tkinter 复刻 macOS RDP 六行布局，Layer 和修饰键支持单次保留、长按锁定；Windows 非激活窗口不抢焦点，输入经 `actions/screen_keyboard.ahk` 转交 `hotkeys/virtual_keyboard.ahk` 复用注册表及分发器，暂停和关闭清理会话，AHK 退出或重载时关闭所属 Python 窗口。
 - 屏幕键盘不显示或持续监听前台窗口，切换应用不隐藏键盘；操作键盘时核对目标，目标变化则清理上一窗口的按键状态。
 - 屏幕键盘默认 512×197，无最小化按钮；置顶界面显示后再次置前，屏幕键盘提升 Z 序但不抢输入焦点，普通 GUI 同时激活。
+- 所有项目 GUI 按 96 DPI 逻辑尺寸设计，使用 Per-Monitor V2 和 `WM_DPICHANGED` 同步窗口、字体、控件及最小尺寸；Tk 共用 `py/utils/dpi_window.py`，AHK 共用 `ui/dpi_gui.ahk`，跨屏不轮询、不累积缩放，窗口限制在当前显示器工作区内。
 - 屏幕键盘布局与界面统一放在 `py/gui/screen_keyboard.py`；悬停仅提亮底色，保留前景色，按键使用浅色单像素边框。
 - “更多”和其右侧的“数字”是独立开关，分别控制下方单行特殊键和右侧小键盘，可同时展开；任一区域展开时每 250 ms 读取锁定键状态，有变化才刷新，NumLock 决定小键盘标签及发送的数字/导航键。
 - 同一 AHK 宿主的 Python 屏幕键盘以 Windows 命名互斥量保证单实例；重复启动等待原窗口就绪，通知其移到鼠标附近后退出新进程。
@@ -130,7 +131,8 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 
 - `src/rules/windows.ahk` 集中维护前台窗口分类；`caps_policy.ahk` 将远程桌面类别和配置转换为路由，基础钩子不包含应用名单。
 - 分类统一通过 `WindowGroups.Matches(WindowGroups.<类别>, hwnd)` 查询，包含 Anki/编辑窗口、图片/聊天看图窗口、中键拖动、远程/虚拟机侧键穿透和前进/后退特殊应用；`Definitions` 维护原生匹配项，`Includes` 组合已有类别。
-- `RemoteDesktop.capsMode` 可设为 `CapsLock`、`F1`、`F24` 或 `layer`，默认 `F1`，托盘可切换并保存；当前启用的 Layer 触发键统一使用此策略。
+- `RemoteDesktop.capsMode` 可设为 `CapsLock`、`F1`、`F24` 或 `layer`，默认 `F1`，托盘可切换并保存；F1 不受此设置影响，分发许可按当前按住的本地触发键判断。
+- `mstsc.exe` 仅将 `TscShellContainerClass` 识别为远程桌面，`#32770` 等其他窗口使用普通 Layer 行为。
 - 转发模式保留修饰键且不执行本地 Layer，按下到抬起固定同一目标；多个别名共享目标时，最后一个松开才发送抬起；暂停与退出释放已转发的键。
 - `tests/test_remote.ahk` 验证窗口分类、路由选择、模式切换及按键收尾。
 

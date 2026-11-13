@@ -8,7 +8,13 @@ class TriggerRouter {
         this.Targets := Map()
     }
 
-    AllowsLayer(hwnd) => this.Resolve.Call("", hwnd) == "layer"
+    AllowsLayer(hwnd) {
+        for key in this.State.Held {
+            if this.Resolve.Call(key, hwnd) == "layer"
+                return true
+        }
+        return false
+    }
 
     Down(key, hwnd) {
         if this.Held.Has(key)

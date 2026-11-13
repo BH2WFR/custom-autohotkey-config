@@ -30,7 +30,7 @@ class DesktopTest:
         self.cursor = W.POINT()
         U.GetCursorPos(C.byref(self.cursor))
         self.keyboard = ScreenKeyboard(int(sys.argv[1]))
-        self.keyboard.window.geometry("%dx%d+80+360" % DEFAULT_SIZE)
+        self.keyboard.window.geometry("%dx%d+80+360" % tuple(self.keyboard.px(v) for v in DEFAULT_SIZE))
         self.expected = ""
         self.sent = []
         original_send = self.keyboard.client.send

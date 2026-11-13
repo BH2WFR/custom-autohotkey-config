@@ -9,6 +9,7 @@
 #Include ../src/rules/windows.ahk
 #Include ../src/ui/window_picker.ahk
 #Include ../src/ui/window_inspector.ahk
+#Include ../src/ui/dpi_gui.ahk
 #Include ../src/actions/window_inspector.ahk
 
 class WindowInspectorTests {
@@ -145,6 +146,7 @@ class WindowInspectorTests {
             Sleep(100)
             view.Info.GetPos(&leftX,, &leftW), view.ControlList.GetPos(&rightX,, &rightW)
             this.Assert(leftX + leftW < rightX && rightW > leftW, "Resized lists retain gap and proportions")
+            this.DpiTest(view)
             closedHwnd := other.Hwnd
             other.Destroy()
             actions.Invoke("Load", closedHwnd)
@@ -162,6 +164,39 @@ class WindowInspectorTests {
         }
         this.Assert(!actions.View && !actions.Data, "Close releases GUI and target")
         FileAppend("PASS " this.Count " window inspector checks`n", "*")
+    }
+
+    static DpiTest(view) {
+        context := DllCall("GetWindowDpiAwarenessContext", "Ptr", view.Handle, "Ptr")
+        this.Assert(DllCall("AreDpiAwarenessContextsEqual", "Ptr", context, "Ptr", GuiDpi.PerMonitorV2), "Inspector uses Per-Monitor V2")
+        previous := GuiDpi.Enter()
+        try {
+            actualDpi := DllCall("GetDpiForWindow", "Ptr", view.Handle, "UInt")
+            font := SendMessage(GuiDpi.GetFontMessage, 0, 0, view.Status.Hwnd)
+            data := Buffer(GuiDpi.LogFontBytes)
+            DllCall("gdi32\GetObjectW", "Ptr", font, "Int", data.Size, "Ptr", data)
+            logicalFontHeight := NumGet(data, 0, "Int") / view.Dpi.Scale
+            for dpi in [96, 120, 144, 192, 240, actualDpi] {
+                bounds := Buffer(16)
+                NumPut("Int", Round(WindowInspectorView.Width * dpi / 96), "Int", Round(WindowInspectorView.Height * dpi / 96), bounds, 8)
+                DllCall("AdjustWindowRectExForDpi", "Ptr", bounds, "UInt", WinGetStyle(view.Handle),
+                    "Int", false, "UInt", WinGetExStyle(view.Handle), "UInt", actualDpi)
+                width := NumGet(bounds, 8, "Int") - NumGet(bounds, 0, "Int")
+                height := NumGet(bounds, 12, "Int") - NumGet(bounds, 4, "Int")
+                NumPut("Int", 60, "Int", 60, "Int", 60 + width, "Int", 60 + height, bounds)
+                SendMessage(GuiDpi.ChangedMessage, dpi | (dpi << 16), bounds.Ptr,, view.Handle)
+                Sleep(30)
+                this.Assert(view.Dpi.Scale == dpi / 96, "DPI notification updates view scale")
+                view.Finder.GetPos(&x, &y, &w, &h)
+                this.Assert(x == view.Dpi.Px(8) && y == view.Dpi.Px(4) && w == view.Dpi.Px(34) && h == view.Dpi.Px(30),
+                    "Finder bounds scale from original layout without accumulated rounding")
+                font := SendMessage(GuiDpi.GetFontMessage, 0, 0, view.Status.Hwnd)
+                DllCall("gdi32\GetObjectW", "Ptr", font, "Int", data.Size, "Ptr", data)
+                this.Assert(Abs(NumGet(data, 0, "Int") - Round(logicalFontHeight * view.Dpi.Scale)) <= 1, "Native font scales with DPI")
+                view.Info.GetPos(&leftX,, &leftW), view.ControlList.GetPos(&rightX,, &rightW)
+                this.Assert(leftX + leftW < rightX && rightW > leftW, "DPI change preserves list layout")
+            }
+        } finally GuiDpi.Leave(previous)
     }
 }
 

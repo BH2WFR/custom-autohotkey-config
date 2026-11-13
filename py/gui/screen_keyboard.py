@@ -6,6 +6,7 @@ from tkinter import messagebox
 
 from utils.keyboard_client import KeyboardClient
 from utils.keyboard_state import LockKeyState
+from utils.dpi_window import BASE_DPI, DpiWindow
 from utils.nonactivating_window import NonactivatingWindow
 
 
@@ -111,12 +112,14 @@ class ScreenKeyboard:
     TOGGLE_BACKGROUND = "#34657c"
 
     def __init__(self, host: int) -> None:
+        DpiWindow.enable()
+        self.scale = DpiWindow.system_dpi() / BASE_DPI
         self.target = NonactivatingWindow.foreground()
         self.window = tk.Tk()
         self.window.withdraw()
         self.window.title("屏幕键盘 — Custom Autohotkey Config")
-        self.window.geometry("%dx%d" % DEFAULT_SIZE)
-        self.window.minsize(*MINIMUM_SIZE)
+        self.window.geometry("%dx%d" % tuple(self.px(value) for value in DEFAULT_SIZE))
+        self.window.minsize(*(self.px(value) for value in MINIMUM_SIZE))
         self.window.configure(background=self.BACKGROUND)
         self.window.iconbitmap(str(Path(__file__).resolve().parents[2] / "res" / "MainIcon.ico"))
         self.held = set()
@@ -134,7 +137,7 @@ class ScreenKeyboard:
         self.hovered = set()
         self.button_colors = {}
         self.status = tk.Label(self.window, anchor="w", background=self.BACKGROUND,
-                               foreground="#505760", font=(self.UI_FONT, 8))
+                               foreground="#505760", font=self.font(self.UI_FONT, 8))
         self.toolbar = []
         self.toolbar_buttons = {}
         for name, label, action in [("extended", "更多", self.toggle_extended),
@@ -142,7 +145,7 @@ class ScreenKeyboard:
                                     ("reset", "释放", self.reset),
                                     ("size", "复位", self.reset_size)]:
             button = tk.Label(self.window, text=label, background=self.BACKGROUND,
-                               font=(self.UI_FONT, 8), cursor="hand2")
+                               font=self.font(self.UI_FONT, 8), cursor="hand2")
             button.bind("<ButtonRelease-1>", lambda event, fn=action: self.perform(fn))
             if name in {"extended", "numpad"}:
                 button.configure(borderwidth=0, highlightthickness=self.BORDER_WIDTH,
@@ -162,7 +165,7 @@ class ScreenKeyboard:
         self.window.bind("<ButtonRelease-1>", self.release_pointer)
         self.window.bind("<Unmap>", self.unmapped)
         self.window.protocol("WM_DELETE_WINDOW", self.close)
-        self.native = NonactivatingWindow(self.window, lambda: self.perform(self.reset))
+        self.native = NonactivatingWindow(self.window, lambda: self.perform(self.reset), self.dpi_changed)
         self.client = KeyboardClient(host, self.native.hwnd)
         self.layout()
         self.refresh()
@@ -173,7 +176,7 @@ class ScreenKeyboard:
                            foreground="white" if name == "language" else "#202124",
                            borderwidth=0, relief="flat", highlightthickness=self.BORDER_WIDTH,
                            highlightbackground=self.BORDER_COLOR, highlightcolor=self.BORDER_COLOR,
-                           font=(self.UI_FONT if name == "language" else self.KEY_FONT, 9), cursor="arrow")
+                           font=self.font(self.UI_FONT if name == "language" else self.KEY_FONT, 9), cursor="arrow")
         button.bind("<ButtonPress-1>", lambda event: self.perform(lambda: self.press(name)))
         self.bind_hover(button)
         self.paint_button(button, key_color(name), "white" if name == "language" else "#202124")
@@ -298,32 +301,50 @@ class ScreenKeyboard:
     def reset_size(self):
         self.expanded = False
         self.numpad_visible = False
-        self.resize_panels(*DEFAULT_SIZE)
+        self.resize_panels(*(self.px(value) for value in DEFAULT_SIZE))
 
     def toggle_extended(self):
         self.window.update_idletasks()
         self.expanded = not self.expanded
-        height = self.window.winfo_height() + (self.EXTRA_ROW_HEIGHT if self.expanded else -self.EXTRA_ROW_HEIGHT)
+        height = self.window.winfo_height() + self.px(self.EXTRA_ROW_HEIGHT if self.expanded else -self.EXTRA_ROW_HEIGHT)
         self.resize_panels(self.window.winfo_width(), height)
 
     def toggle_numpad(self):
         self.window.update_idletasks()
         self.numpad_visible = not self.numpad_visible
         ratio = (ROW_UNITS + self.NUMPAD_COLUMNS) / ROW_UNITS
-        width = self.window.winfo_width() - self.MARGIN * 2 + self.GAP
-        width = round(width * ratio if self.numpad_visible else width / ratio) + self.MARGIN * 2 - self.GAP
+        width = self.window.winfo_width() - self.px(self.MARGIN) * 2 + self.px(self.GAP)
+        width = round(width * ratio if self.numpad_visible else width / ratio) + self.px(self.MARGIN) * 2 - self.px(self.GAP)
         self.resize_panels(width, self.window.winfo_height())
 
     def resize_panels(self, width, height):
-        ratio = (ROW_UNITS + self.NUMPAD_COLUMNS) / ROW_UNITS
-        self.window.minsize(round(MINIMUM_SIZE[0] * ratio) if self.numpad_visible else MINIMUM_SIZE[0],
-                            MINIMUM_SIZE[1] + (self.EXTRA_ROW_HEIGHT if self.expanded else 0))
+        self.set_minimum_size()
         self.window.geometry(f"{width}x{height}")
         self.window.update_idletasks()
         self.stop_lock_updates()
         if self.expanded or self.numpad_visible:
             self.update_lock_states()
         self.refresh()
+        self.layout()
+
+    def px(self, value):
+        return round(value * self.scale)
+
+    def font(self, family, points):
+        # 负字号表示像素，避免 Tk 的全局 scaling 在混合 DPI 下二次缩放。
+        return family, -self.px(points * BASE_DPI / 72)
+
+    def set_minimum_size(self):
+        ratio = (ROW_UNITS + self.NUMPAD_COLUMNS) / ROW_UNITS if self.numpad_visible else 1
+        self.window.minsize(self.px(MINIMUM_SIZE[0] * ratio),
+                            self.px(MINIMUM_SIZE[1] + (self.EXTRA_ROW_HEIGHT if self.expanded else 0)))
+
+    def dpi_changed(self, dpi):
+        self.scale = dpi / BASE_DPI
+        self.set_minimum_size()
+        self.status.configure(font=self.font(self.UI_FONT, 8))
+        for button in self.toolbar:
+            button.configure(font=self.font(self.UI_FONT, 8))
         self.layout()
 
     def stop_lock_updates(self):
@@ -370,21 +391,21 @@ class ScreenKeyboard:
         if event is not None and event.widget is not self.window:
             return
         width, height = self.window.winfo_width(), self.window.winfo_height()
-        margin, gap, header = self.MARGIN, self.GAP, 25
-        extra = self.EXTRA_ROW_HEIGHT if self.expanded else 0
+        margin, gap, header = self.px(self.MARGIN), self.px(self.GAP), self.px(25)
+        extra = self.px(self.EXTRA_ROW_HEIGHT) if self.expanded else 0
         unit = (width - margin * 2 + gap) / (ROW_UNITS + self.NUMPAD_COLUMNS if self.numpad_visible else ROW_UNITS)
         row_height = (height - header - margin - extra) / 6
-        toolbar_width = len(self.toolbar) * 37
-        self.status.place(x=margin, y=2, width=max(0, width - toolbar_width - margin * 2), height=20)
+        toolbar_width = len(self.toolbar) * self.px(37)
+        self.status.place(x=margin, y=self.px(2), width=max(0, width - toolbar_width - margin * 2), height=self.px(20))
         for index, button in enumerate(self.toolbar):
-            button.place(x=width - margin - toolbar_width + index * 37, y=2, width=35, height=20)
+            button.place(x=width - margin - toolbar_width + index * self.px(37), y=self.px(2), width=self.px(35), height=self.px(20))
         for row_index, row in enumerate(ROWS):
             x = margin
             for name, label, units in row:
                 self.buttons[name].place(x=round(x), y=round(header + row_index * row_height),
-                                         width=round(units * unit - gap), height=max(12, round(row_height - gap)))
-                self.buttons[name].configure(font=(self.UI_FONT if name == "language" else self.KEY_FONT,
-                                                   8 if unit * ROW_UNITS < 600 else 9))
+                                         width=round(units * unit - gap), height=max(self.px(12), round(row_height - gap)))
+                self.buttons[name].configure(font=self.font(self.UI_FONT if name == "language" else self.KEY_FONT,
+                                                   8 if unit * ROW_UNITS < self.px(600) else 9))
                 x += units * unit
         for index, (name, _) in enumerate(EXTENDED_KEYS):
             button = self.extended_buttons[name]
@@ -392,7 +413,7 @@ class ScreenKeyboard:
                 button.place(x=margin + index * (width - margin * 2 + gap) / len(EXTENDED_KEYS),
                              y=height - extra,
                              width=(width - margin * 2 + gap) / len(EXTENDED_KEYS) - gap, height=extra - gap - margin)
-                button.configure(font=(self.KEY_FONT, 8))
+                button.configure(font=self.font(self.KEY_FONT, 8))
             else:
                 button.place_forget()
         numpad_row = (height - header - margin - extra) / self.NUMPAD_ROWS
@@ -402,7 +423,7 @@ class ScreenKeyboard:
                 button.place(x=round(margin + (ROW_UNITS + column) * unit),
                              y=round(header + row * numpad_row),
                              width=round(columns * unit - gap), height=round(rows * numpad_row - gap))
-                button.configure(font=(self.KEY_FONT, 8))
+                button.configure(font=self.font(self.KEY_FONT, 8))
             else:
                 button.place_forget()
 

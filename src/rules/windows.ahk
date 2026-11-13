@@ -49,7 +49,7 @@ class WindowGroups {
             "ahk_exe explorer.exe ahk_class NativeHWNDHost", "ahk_exe explorer.exe ahk_class ClockFlyoutWindow",
             "ahk_exe explorer.exe ahk_class BatMeterFlyout"],
         WindowGroups.RemoteDesktop, [
-            "ahk_exe mstsc.exe", "ahk_exe ToDesk.exe", "ahk_exe RustDesk.exe",
+            "ahk_exe mstsc.exe ahk_class TscShellContainerClass", "ahk_exe ToDesk.exe", "ahk_exe RustDesk.exe",
             "ahk_exe SunloginClient.exe", "ahk_exe TeamViewer.exe", "ahk_exe AnyDesk.exe",
             "ahk_exe parsecd.exe", "ahk_exe GameViewer.exe", "ahk_exe dwagent.exe"
         ],

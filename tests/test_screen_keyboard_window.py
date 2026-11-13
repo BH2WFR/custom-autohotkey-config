@@ -28,7 +28,7 @@ class WindowTest:
     def check(self):
         keyboard = self.keyboard
         try:
-            assert (keyboard.window.winfo_width(), keyboard.window.winfo_height()) == DEFAULT_SIZE
+            assert (keyboard.window.winfo_width(), keyboard.window.winfo_height()) == tuple(keyboard.px(v) for v in DEFAULT_SIZE)
             assert len(keyboard.toolbar) == 4
             assert not U.GetWindowLongPtrW(keyboard.native.hwnd, GWL_STYLE) & WS_MINIMIZEBOX
             assert not hasattr(keyboard, "minimize")
@@ -53,13 +53,13 @@ class WindowTest:
                 for name, enabled in [("extended", more), ("numpad", numpad)]:
                     assert (keyboard.button_colors[keyboard.toolbar_buttons[name]] == keyboard.TOGGLE_BACKGROUND) == enabled
                 assert (keyboard.lock_timer is not None) == (more or numpad)
-            assert (keyboard.window.winfo_width(), keyboard.window.winfo_height()) == DEFAULT_SIZE
+            assert (keyboard.window.winfo_width(), keyboard.window.winfo_height()) == tuple(keyboard.px(v) for v in DEFAULT_SIZE)
             keyboard.toggle_numpad()
             keyboard.toggle_extended()
             keyboard.reset_size()
             keyboard.window.update_idletasks()
             assert not keyboard.expanded and not keyboard.numpad_visible
-            assert (keyboard.window.winfo_width(), keyboard.window.winfo_height()) == DEFAULT_SIZE
+            assert (keyboard.window.winfo_width(), keyboard.window.winfo_height()) == tuple(keyboard.px(v) for v in DEFAULT_SIZE)
             print("PASS: independent panel toggles, default/reset size, no minimize button, topmost without changing focus")
         except Exception:
             self.error = traceback.format_exc()

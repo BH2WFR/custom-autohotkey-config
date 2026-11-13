@@ -1,13 +1,8 @@
 """Tk 浮动窗口的 Windows 非激活显示及定位。"""
 import ctypes as C
 from ctypes import wintypes as W
-from queue import SimpleQueue
-from threading import Thread
+from utils.dpi_window import DpiWindow, MonitorInfo, U
 
-U = C.WinDLL("user32", use_last_error=True)
-LONG_PTR = C.c_ssize_t
-WNDPROC = C.WINFUNCTYPE(LONG_PTR, W.HWND, W.UINT, W.WPARAM, W.LPARAM)
-GWLP_WNDPROC = -4
 GWL_EXSTYLE = -20
 GWL_STYLE = -16
 WS_MINIMIZEBOX = 0x00020000
@@ -30,19 +25,9 @@ PER_MONITOR_AWARE_V2 = -4
 CURSOR_GAP = 12
 
 
-class MonitorInfo(C.Structure):
-    _fields_ = [("size", W.DWORD), ("monitor", W.RECT),
-                ("work", W.RECT), ("flags", W.DWORD)]
-
 U.GetAncestor.argtypes = [W.HWND, W.UINT]
 U.GetAncestor.restype = W.HWND
 U.GetForegroundWindow.restype = W.HWND
-U.GetWindowLongPtrW.argtypes = [W.HWND, C.c_int]
-U.GetWindowLongPtrW.restype = LONG_PTR
-U.SetWindowLongPtrW.argtypes = [W.HWND, C.c_int, LONG_PTR]
-U.SetWindowLongPtrW.restype = LONG_PTR
-U.CallWindowProcW.argtypes = [LONG_PTR, W.HWND, W.UINT, W.WPARAM, W.LPARAM]
-U.CallWindowProcW.restype = LONG_PTR
 U.ShowWindow.argtypes = [W.HWND, C.c_int]
 U.SetWindowPos.argtypes = [W.HWND, W.HWND, C.c_int, C.c_int, C.c_int, C.c_int, W.UINT]
 U.GetCursorPos.argtypes = [C.POINTER(W.POINT)]
@@ -54,16 +39,14 @@ U.SetThreadDpiAwarenessContext.argtypes = [W.HANDLE]
 U.SetThreadDpiAwarenessContext.restype = W.HANDLE
 
 
-class NonactivatingWindow:
+class NonactivatingWindow(DpiWindow):
     @staticmethod
     def foreground():
         return U.GetForegroundWindow()
 
-    def __init__(self, root, on_reset) -> None:
+    def __init__(self, root, on_reset, on_dpi=lambda dpi: None) -> None:
         self.root = root
         self.on_reset = on_reset
-        self.commands = SimpleQueue()
-        self.closed = False
         # Tk 首次映射会主动 SetActiveWindow；先在禁用状态完成映射。
         root.attributes("-disabled", True)
         root.deiconify()
@@ -76,26 +59,7 @@ class NonactivatingWindow:
         style = U.GetWindowLongPtrW(self.hwnd, GWL_EXSTYLE)
         U.SetWindowLongPtrW(self.hwnd, GWL_EXSTYLE,
                            style | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW)
-        self.proc = WNDPROC(self._window_proc)
-        self.old_proc = U.SetWindowLongPtrW(self.hwnd, GWLP_WNDPROC,
-                                           C.cast(self.proc, C.c_void_p).value)
-        root.after(0, self._start_dispatcher)
-
-    def _start_dispatcher(self):
-        Thread(target=self._dispatch, daemon=True).start()
-
-    def _dispatch(self):
-        # ctypes 窗口回调中直接调用 Tk 会破坏 Tcl 的线程状态；经 Tk 的跨线程队列调度。
-        # 工作线程阻塞等待消息，空闲时不轮询。
-        while (command := self.commands.get()) is not None:
-            if self.closed:
-                return
-            try:
-                self.root.after(0, command)
-            except RuntimeError:
-                if self.closed:
-                    return
-                raise
+        super().__init__(root, on_dpi)
 
     def _window_proc(self, hwnd, message, wp, lp):
         if message == WM_MOUSEACTIVATE:
@@ -106,7 +70,7 @@ class NonactivatingWindow:
         if message == WM_SHOW_KEYBOARD:
             self.commands.put(self.show)
             return 0
-        return U.CallWindowProcW(self.old_proc, hwnd, message, wp, lp)
+        return super()._window_proc(hwnd, message, wp, lp)
 
     def show(self) -> None:
         self.root.update_idletasks()
@@ -140,8 +104,3 @@ class NonactivatingWindow:
             U.SetWindowPos(self.hwnd, W.HWND(HWND_TOPMOST), x, y, width, height, SWP_NOACTIVATE)
         finally:
             U.SetThreadDpiAwarenessContext(previous)
-
-    def close(self) -> None:
-        self.closed = True
-        self.commands.put(None)
-        U.SetWindowLongPtrW(self.hwnd, GWLP_WNDPROC, self.old_proc)

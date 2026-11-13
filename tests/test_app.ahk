@@ -67,6 +67,7 @@
 #Include ../src/ui/popup_menu.ahk
 #Include ../src/ui/window_picker.ahk
 #Include ../src/ui/window_inspector.ahk
+#Include ../src/ui/dpi_gui.ahk
 #Include ../src/core/app.ahk
 
 class AppTests {
