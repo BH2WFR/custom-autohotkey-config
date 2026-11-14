@@ -7,6 +7,11 @@ class WindowTools {
     static Opaque := 255
     static OpacityLevels := [51, 102, 153, 204, 255]
 
+    static RequireWindow(hwnd) {
+        if !hwnd || !DllCall("IsWindow", "Ptr", hwnd)
+            throw TargetError("目标窗口不存在或句柄已失效。")
+    }
+
     static Center(hwnd, width := 0, height := 0) {
         target := "ahk_id " hwnd
         WinRestore(target)
@@ -64,6 +69,7 @@ class WindowTools {
     }
     static ShowDesktop() => WinMinimizeAll()
     static MinimizeOthers(hwnd) {
+        this.RequireWindow(hwnd)
         WinMinimizeAll()
         WinRestore("ahk_id " hwnd)
         WinActivate("ahk_id " hwnd)

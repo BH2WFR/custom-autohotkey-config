@@ -25,8 +25,11 @@ class ImeActions {
     }
 
     Toggle(method, methods, hwnd) {
-        if method == ImeMethods.Api
-            return this.Api.ToggleOpen(hwnd)
+        if method == ImeMethods.Api {
+            if !this.Api.ToggleOpen(hwnd)
+                throw Error("未找到输入法窗口或输入法未响应切换。")
+            return true
+        }
         this.Sender.Send(methods[method])
         return true
     }

@@ -8,7 +8,7 @@ class TextEditor {
     Transform(callback, copyKey, pasteKey) {
         selected := this.Clipboard.Read(copyKey)
         if !selected.Success
-            return false
+            throw TimeoutError("未能取得选中文本，请检查选区和目标窗口。")
         this.Clipboard.Paste(callback.Call(selected.Text), pasteKey)
         return true
     }

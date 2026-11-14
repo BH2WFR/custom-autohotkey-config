@@ -17,11 +17,11 @@ class ClipboardActions {
         if second {
             selected := this.Clipboard.Read(key, line)
             if !selected.Success
-                return
+                throw TimeoutError("未能取得复制的文本，请检查选区和目标窗口。")
             this.Second := selected.Text
         } else if line {
             if !this.Clipboard.Capture(key, true).Success
-                return
+                throw TimeoutError("未能取得当前行文本，请检查目标窗口。")
         }
         else
             this.Sender.Send(key)

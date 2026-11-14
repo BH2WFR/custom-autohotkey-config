@@ -21,6 +21,7 @@ class App {
         this.ScreenKeyboard := ScreenKeyboard(this.Python, root)
         this.Autorun := Autorun(root)
         this.Tooltip := TooltipPresenter()
+        this.Errors := RuntimeErrors(this.Tooltip)
         this.State := LayerState()
         this.Registry := HotkeyRegistry(ObjBindMethod(WindowGroups, "Matches"))
         this.Sender := KeyboardSender()
@@ -69,6 +70,7 @@ class App {
         this.ExitCallback := ObjBindMethod(this, "Stop")
         OnExit(this.ExitCallback)
         this.Config.SaveAll()
+        this.Errors.Start()
         Persistent()
     }
 
@@ -117,16 +119,19 @@ class App {
     }
 
     static Stop(*) {
-        this.Input.Stop()
-        this.Mouse.Stop()
-        this.XButtons.Stop()
-        this.MiddleDrag.Stop()
-        this.Touchpad.Stop()
-        this.MouseNative.Stop()
-        this.ScreenKeyboard.Stop()
-        this.WindowInspector.Close()
         this.Tooltip.Hide()
-        this.Windows.Stop()
-        this.Config.SaveAll()
+        for controller in [this.Input, this.Mouse, this.XButtons, this.MiddleDrag,
+            this.Touchpad, this.MouseNative, this.ScreenKeyboard, this.Windows] {
+            try controller.Stop()
+            catch Error as err
+                this.Errors.Report(err)
+        }
+        try this.WindowInspector.Close()
+        catch Error as err
+            this.Errors.Report(err)
+        try this.Config.SaveAll()
+        catch Error as err
+            this.Errors.Report(err)
+        this.Errors.Stop()
     }
 }

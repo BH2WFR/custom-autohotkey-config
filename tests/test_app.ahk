@@ -69,6 +69,7 @@
 #Include ../src/ui/window_inspector.ahk
 #Include ../src/ui/dpi_gui.ahk
 #Include ../src/core/app.ahk
+#Include ../src/core/runtime_errors.ahk
 
 class AppTests {
     static Count := 0

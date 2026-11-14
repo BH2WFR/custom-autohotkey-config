@@ -99,7 +99,11 @@ class ImeTests {
             this.Assert(actions.ToggleLanguage(context) && api.Toggles == toggles + 1, property " calls IMM")
             this.Assert(sender.Events.Length == before, property " API sends no shortcut")
             api.Success := false
-            this.Assert(!actions.ToggleLanguage(context) && sender.Events.Length == before, property " preserves API failure without fallback")
+            failed := false
+            try actions.ToggleLanguage(context)
+            catch Error
+                failed := true
+            this.Assert(failed && sender.Events.Length == before, property " reports API failure without fallback")
             api.Success := true
             this.Assert(settings.CheckValid() == "", property " accepts API setting")
             settings.%property% := "unknown"

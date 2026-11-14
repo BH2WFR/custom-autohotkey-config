@@ -26,6 +26,7 @@ class TouchpadActions {
         this.Busy := true
         this.Cancelled := false
         try {
+            this.End(TouchInjection.Cancel)
             position := this.Injection.Position()
             frames := TouchpadActions.Plan(position, direction)
             this.Injection.Initialize()
@@ -67,11 +68,10 @@ class TouchpadActions {
             return
         previousCritical := A_IsCritical
         Critical("On")
-        try this.Injection.Send(this.LastPoints, flags)
-        finally {
+        try {
+            this.Injection.Send(this.LastPoints, flags)
             this.Active := false
-            Critical(previousCritical)
-        }
+        } finally Critical(previousCritical)
     }
 
     ResetInput() {

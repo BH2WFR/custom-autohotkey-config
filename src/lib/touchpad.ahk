@@ -93,5 +93,8 @@ class TouchInjection {
         }
     }
 
-    Restore(position) => DllCall("SetPhysicalCursorPos", "Int", position.X, "Int", position.Y)
+    Restore(position) {
+        if !DllCall("SetPhysicalCursorPos", "Int", position.X, "Int", position.Y)
+            throw OSError()
+    }
 }

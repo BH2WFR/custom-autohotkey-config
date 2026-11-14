@@ -26,8 +26,15 @@ class HotkeySession {
 
     SetPaused(paused) {
         this.Paused := !!paused
-        for controller in this.Controllers
-            controller.SetEnabled(!paused)
         this.Tooltip.Hide()
+        for controller in this.Controllers {
+            try controller.SetEnabled(!paused)
+            catch Error as err {
+                if !IsSet(failure)
+                    failure := err
+            }
+        }
+        if IsSet(failure)
+            throw failure
     }
 }

@@ -78,6 +78,7 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 - 禁止硬编码的魔鬼数字、魔鬼字符串。应当使用全局变量或类的static变量。
 - 允许破坏性更新，该重构就重构，严禁当不断添加回退或防御性代码的糊裱匠。
 - 热键处理系统，应确保从按下到开始执行过程中延迟越小越好。
+- 涉及窗口操作、系统 API 调用、剪贴板读写等函数，要有异常捕获等兜底机制，在遇到句柄错误、窗口不存在等问题时能够正确地通过对话框或 tooltip 等方式反馈问题。
 
 ## 热键注册
 
@@ -89,6 +90,8 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 - 目录菜单声明位于 `rules/paths.ahk`，`ui/popup_menu.ahk` 渲染原生菜单，`actions/paths.ahk` 执行命令并提示，`lib/shell.ahk` 负责系统目录查询、图标提取和启动；图标仅使用系统中存在且与条目对应的资源，`tests/test_paths.ahk` 验证菜单及提示。
 - 输入层在 `WM_EXITMENULOOP` 后统一补齐遗漏的 KeyUp，保留仍按住的键且不触发输入法切换；菜单视图不参与层状态管理，`tests/test_caps_menu.ahk` 验证连续按键及菜单收尾。
 - 旧版动作 Tooltip 由动作对象接收注入的 `TooltipPresenter` 显示，基础库不依赖界面；`WindowActions` 实例持有窗口穿透状态。
+- 窗口操作在动作入口捕获异常并用 Tooltip 显示原因；先验证目标再执行最小化等批量操作，失效穿透句柄及时清理，基础库不吞掉错误；`tests/test_window_errors.ahk` 验证失效句柄及操作中关闭窗口。
+- `core/runtime_errors.ahk` 统一以 Tooltip 报告运行期未处理异常并终止当前动作；基础库抛出错误，`finally` 恢复剪贴板、输入法及修饰键，触点和模拟按键释放成功后才清空状态，暂停和退出继续清理其他控制器。
 - 桌面、任务栏及旧版系统弹窗名单统一归 `WindowGroups.WindowFixed`，禁止置顶、透明度调整和开启穿透，已有穿透始终允许关闭；应用限制不放入基础窗口库。
 - `Q`、`U/I/O/J/K/L` 和反斜杠穿透所有修饰键；`I/J/K/L` 每次移动 1 个物理像素，Shift 默认 10 个，由 `Mouse.pointerFastStep` 设置，移动不显示 Tooltip；Anki 专用规则优先。
 - `tests/test_hotkeys.ahk` 验证注册与分流，`tests/test_editing.ahk` 验证文本转换、真实编辑控件、剪贴板恢复、ASCII 扫描码、Unicode 和窗口状态。

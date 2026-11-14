@@ -53,14 +53,15 @@ class MiddleDragController {
         Critical("On")
         try {
             keys := ""
-            while this.Owned.Length {
-                key := this.Owned.Pop()
+            loop this.Owned.Length {
+                key := this.Owned[this.Owned.Length - A_Index + 1]
                 ; 用户随后实际按住的键，交回其物理抬起事件释放。
                 if !this.Pressed.Call(key, true)
                     keys .= "{" key " up}"
             }
             if keys != ""
                 this.Sender.Send(keys)
+            this.Owned := []
         } finally Critical(previousCritical)
     }
 

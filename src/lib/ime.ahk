@@ -12,6 +12,7 @@ class ImeApi {
     static RestoreDelay := 300
     static ChineseRestoreKeys := "^{Space}"
     static RestorePollInterval := 10
+    static RestoreTimeout := 2000
     static GuiInfoSize := 8 + 6 * A_PtrSize + 16
     static FocusOffset := 8 + A_PtrSize
 
@@ -70,8 +71,12 @@ class ImeApi {
     }
 
     WaitUntilOpen(imeWindow) {
-        while !this.Control(imeWindow, ImeApi.GetOpenStatus)
+        started := A_TickCount
+        while !this.Control(imeWindow, ImeApi.GetOpenStatus) {
+            if A_TickCount - started >= ImeApi.RestoreTimeout
+                throw TimeoutError("等待输入法恢复超时。")
             Sleep(ImeApi.RestorePollInterval)
+        }
     }
 
     Control(hwnd, command, value := 0) {

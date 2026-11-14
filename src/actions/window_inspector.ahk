@@ -1,6 +1,7 @@
 ﻿; 查看器目标与生命周期，系统查询和界面通过各自模块完成。
 class WindowInspectorActions {
     static TipDuration := 800
+    static ErrorDuration := 1800
     View := 0
     Data := 0
 
@@ -11,6 +12,12 @@ class WindowInspectorActions {
     }
 
     Open(context) {
+        try this._Open(context)
+        catch Error as err
+            this.ReportError(err)
+    }
+
+    _Open(context) {
         if !this.View {
             commands := Map()
             for name in ["Close", "Search", "RefreshList", "Refresh", "Controls", "Priority",
@@ -26,8 +33,15 @@ class WindowInspectorActions {
     Invoke(method, args*) {
         try return this.%method%(args*)
         catch Error as err {
-            this.View.SetStatus(err.Message)
+            this.ReportError(err)
+            return false
         }
+    }
+
+    ReportError(err) {
+        if this.View
+            try this.View.SetStatus(err.Message)
+        this.Tooltip.Show("窗口操作失败：" err.Message, WindowInspectorActions.ErrorDuration)
     }
 
     Load(hwnd) {
@@ -94,8 +108,8 @@ class WindowInspectorActions {
     Center() => this.Resize(false)
     ResetSize() => this.Resize(true)
     Resize(reset) {
-        this.Windows.Center(reset, this.Target())
-        this.Refresh()
+        if this.Windows.Center(reset, this.Target())
+            this.Refresh()
     }
 
     CloseWindow() {

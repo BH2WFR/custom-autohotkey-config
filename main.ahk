@@ -27,6 +27,7 @@
 #Include src/rules/ime.ahk
 #Include src/core/autorun.ahk
 #Include src/core/session.ahk
+#Include src/core/runtime_errors.ahk
 #Include src/hotkeys/native.ahk
 #Include src/hotkeys/layers.ahk
 #Include src/hotkeys/registry.ahk

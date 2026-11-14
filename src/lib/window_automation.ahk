@@ -33,7 +33,10 @@ class WindowAutomation {
                 Sleep(WindowAutomation.StepDelay)
             }
             return true
-        } finally DllCall("SetPhysicalCursorPos", "Int", NumGet(saved, 0, "Int"), "Int", NumGet(saved, 4, "Int"))
+        } finally {
+            if !DllCall("SetPhysicalCursorPos", "Int", NumGet(saved, 0, "Int"), "Int", NumGet(saved, 4, "Int"))
+                throw OSError()
+        }
     }
 
     ClickControl(hwnd, control) => ControlClick(control, "ahk_id " hwnd,,,, "NA")

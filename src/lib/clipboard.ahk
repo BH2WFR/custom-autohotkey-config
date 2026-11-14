@@ -12,6 +12,19 @@ class ClipboardService {
     }
 
     Capture(keys, line := false) {
+        saved := ClipboardAll()
+        success := false
+        try {
+            result := this._Capture(keys, line)
+            success := result.Success
+            return result
+        } finally {
+            if !success
+                A_Clipboard := saved
+        }
+    }
+
+    _Capture(keys, line) {
         A_Clipboard := ""
         if line
             this.Sender.Send(ClipboardService.SelectLineKeys)
@@ -22,7 +35,7 @@ class ClipboardService {
 
     Read(keys := ClipboardService.CopyKey, line := false) {
         saved := ClipboardAll()
-        try return this.Capture(keys, line)
+        try return this._Capture(keys, line)
         finally A_Clipboard := saved
     }
 
