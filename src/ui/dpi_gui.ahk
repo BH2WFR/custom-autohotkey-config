@@ -4,6 +4,7 @@ class GuiDpi {
     static PerMonitorV2 := -4
     static ChangedMessage := 0x02E0
     static GetFontMessage := 0x0031
+    static DroppedRectMessage := 0x0152
     static SetFontMessage := 0x0030
     static LogFontBytes := 92
     static KeepOrderAndFocus := 0x0014
@@ -19,6 +20,9 @@ class GuiDpi {
         this.Scale := 1, this.Controls := [], this.Fonts := Map(), this.OwnFonts := []
         for control in gui {
             control.GetPos(&x, &y, &width, &height)
+            ; ComboBox 的窗口矩形只有收起高度，Move 则需要包含下拉列表的总高度。
+            if control.Type == "ComboBox" || control.Type == "DDL"
+                height := GuiDpi.DropHeight(control)
             font := SendMessage(GuiDpi.GetFontMessage, 0, 0, control.Hwnd)
             if font && !this.Fonts.Has(font) {
                 data := Buffer(GuiDpi.LogFontBytes)
@@ -32,6 +36,12 @@ class GuiDpi {
     }
 
     Px(value) => Round(value * this.Scale)
+
+    static DropHeight(control) {
+        rect := Buffer(16)
+        SendMessage(this.DroppedRectMessage, 0, rect, control)
+        return NumGet(rect, 12, "Int") - NumGet(rect, 4, "Int")
+    }
 
     Apply(dpi) {
         previous := GuiDpi.Enter()

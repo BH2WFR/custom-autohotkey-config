@@ -2,13 +2,17 @@
 class WindowInspectorActions {
     static TipDuration := 800
     static ErrorDuration := 1800
+    static PreviewSeconds := 3
+    static PreviewMs := WindowInspectorActions.PreviewSeconds * 1000
     View := 0
     Data := 0
 
-    __New(viewFactory, windows, tooltip) {
+    __New(viewFactory, windows, tooltip, hostPid := 0) {
         this.ViewFactory := viewFactory
         this.Windows := windows
         this.Tooltip := tooltip
+        this.HostPid := hostPid
+        this.ReturnTimer := ObjBindMethod(this, "Invoke", "ReturnFocus")
     }
 
     Open(context) {
@@ -18,16 +22,17 @@ class WindowInspectorActions {
     }
 
     _Open(context) {
+        SetTimer(this.ReturnTimer, 0)
         if !this.View {
             commands := Map()
             for name in ["Close", "Search", "RefreshList", "Refresh", "Controls", "Priority",
-                "Properties", "OpenPath", "Activate", "Center", "ResetSize", "CloseWindow", "Restart", "Terminate", "Copy", "PickAtCursor", "Pick"]
+                "Properties", "OpenPath", "Activate", "ShowBorder", "Center", "ResetSize", "CloseWindow", "Restart", "Terminate", "Copy", "PickAtCursor", "Pick"]
                 commands[name] := ObjBindMethod(this, "Invoke", name)
             this.View := this.ViewFactory.Call(commands)
         }
+        this.View.Show()
         if context.Hwnd != this.View.Handle
             this.Invoke("Load", context.Hwnd)
-        this.View.Show()
     }
 
     Invoke(method, args*) {
@@ -101,9 +106,31 @@ class WindowInspectorActions {
 
     Activate() {
         data := this.Target()
-        this.View.SetTopmost(false)
-        WinActivate(data.Hwnd)
+        SetTimer(this.ReturnTimer, 0)
+        this.View.SuspendTopmost()
+        try {
+            if WinGetMinMax(data.Hwnd) == -1
+                WinRestore(data.Hwnd)
+            WinActivate(data.Hwnd)
+            if !WinActive(data.Hwnd)
+                throw TargetError("无法将目标窗口移到前台。")
+            this.View.Highlight(data.Hwnd, WindowInspectorActions.PreviewMs)
+        } catch as err {
+            this.View.Show()
+            throw err
+        }
+        SetTimer(this.ReturnTimer, -WindowInspectorActions.PreviewMs)
+        name := data.Title != "" ? data.Title : data.ProcessName
+        this.Tooltip.Show("已将窗口「" name "」移动到前台，" WindowInspectorActions.PreviewSeconds " 秒后将焦点切回窗口信息查看器。", WindowInspectorActions.PreviewMs)
     }
+
+    ShowBorder() {
+        try this.View.Highlight(this.Target().Hwnd, WindowInspectorActions.PreviewMs)
+        catch as err
+            this.View.Warn("无法显示窗口边界：" err.Message)
+    }
+
+    ReturnFocus() => this.View.Show()
 
     Center() => this.Resize(false)
     ResetSize() => this.Resize(true)
@@ -124,7 +151,7 @@ class WindowInspectorActions {
     Terminate() => this.ProcessAction(false)
     ProcessAction(restart) {
         data := this.Target()
-        if data.Pid == DllCall("GetCurrentProcessId", "UInt")
+        if data.Pid == ProcessExist() || data.Pid == this.HostPid
             throw Error("请通过托盘重载或退出本工具。")
         verb := restart ? "重启" : "终止"
         if !this.View.Confirm(verb "进程？未保存的内容将丢失。`n" data.ProcessName " (PID " data.Pid ")")
@@ -139,6 +166,7 @@ class WindowInspectorActions {
     }
 
     Close() {
+        SetTimer(this.ReturnTimer, 0)
         if this.View
             this.View.Destroy()
         this.View := 0, this.Data := 0

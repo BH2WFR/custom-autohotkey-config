@@ -4,6 +4,9 @@ class WindowInfo {
     static GetTextMessage := 0x000D
     static TextCapacity := 4096
     static RootAncestor := 2
+    static ToolWindowStyle := 0x80
+    static LayeredStyle := 0x80000
+    static NoActivateStyle := 0x08000000
     static States := Map(-1, "最小化", 0, "正常", 1, "最大化")
 
     static Hex(value) => Format("0x{:08X}", value)
@@ -69,6 +72,11 @@ class WindowInfo {
             try data.Path := WinGetProcessPath(target)
             data.Bounds := WindowGeometry.Measure(hwnd)
             data.Style := WinGetStyle(target), data.ExStyle := WinGetExStyle(target)
+            data.Topmost := !!(data.ExStyle & WindowTools.TopmostStyle)
+            data.ToolWindow := !!(data.ExStyle & this.ToolWindowStyle)
+            data.Layered := !!(data.ExStyle & this.LayeredStyle)
+            data.LayeredClickThrough := data.Layered && !!(data.ExStyle & WindowTools.TransparentStyle)
+            data.NoActivate := !!(data.ExStyle & this.NoActivateStyle)
             alpha := WinGetTransparent(target)
             data.Opacity := alpha == "" ? 255 : alpha
             data.State := this.States[WinGetMinMax(target)]

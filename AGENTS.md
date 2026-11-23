@@ -45,6 +45,7 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 - `src/ui/`：托盘等界面视图，只接收命令和状态查询，不直接访问 App、配置或功能内部对象。
 - Caps+W 使用原生 AHK GUI：`lib/window_info.ahk`、`process.ahk` 查询系统，`actions/window_inspector.ahk` 管理目标及单实例，`ui/window_inspector.ahk` 渲染；选窗或刷新时立即读取进程详情，控件仍按按钮读取，未读取时列表显示提示，无轮询定时器。
 - `ui/window_picker.ahk` 通过鼠标捕获实现拖拽选窗和粗框高亮，按物理坐标及目标显示器缩放绘制，释放、取消或关闭时清理捕获与边框，保留独立弹窗作为目标。
+- 查看器由热键宿主按需启动独立 AHK 进程，使用原生 API 读取进程详情；组合框按展开高度缩放，“激活窗口”按需恢复并置前描边，3 秒后切回；“显示边界”仅描边 3 秒，目标最小化或异常时弹出警告。
 - `src/actions/xbuttons.ahk` 管理侧键生命周期，`src/apps/xbuttons.ahk` 按窗口类别分流，CAJ/PowerISO 模块持有各自布局；`src/lib/window_geometry.ahk` 和 `window_automation.ahk` 仅负责缩放换算、控件点击与点击序列。
 - `py/main.py`：Python 功能入口；`py/text_actions.py`：复杂文本处理；`py/gui/`：tkinter 界面；`py/utils/`：公共辅助模块。
 - AHK 统一管理热键、剪贴板和最终输入，Python 负责复杂处理和 GUI；`src/lib/python.ahk` 仅定位解释器并启动任务，屏幕键盘的单实例窗口及进程归 `src/actions/screen_keyboard.ahk` 管理。

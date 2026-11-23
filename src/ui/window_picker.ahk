@@ -28,6 +28,7 @@ class WindowPickerView {
         if message == WindowPickerView.MouseDown {
             if hwnd != this.Control
                 return
+            this.Border.Hide()
             this.Dragging := true, this.Target := 0
             DllCall("SetCapture", "Ptr", this.Owner)
             this.OldCursor := DllCall("SetCursor", "Ptr", this.Cursor, "Ptr")
@@ -106,6 +107,7 @@ class WindowHighlightView {
 
     __New() {
         this.Edges := []
+        this.HideTimer := ObjBindMethod(this, "Hide")
         loop 4 {
             edge := Gui("-Caption +ToolWindow +AlwaysOnTop -DPIScale +E0x08080020")
             edge.BackColor := WindowHighlightView.Color
@@ -121,17 +123,29 @@ class WindowHighlightView {
         return false
     }
 
-    Show(hwnd) {
-        b := WindowGeometry.Measure(hwnd), r := Max(1, Round(WindowHighlightView.Thickness * b.Scale))
-        rectangles := [[b.X - r, b.Y - r, b.Width + 2 * r, r], [b.X - r, b.Y + b.Height, b.Width + 2 * r, r],
-            [b.X - r, b.Y, r, b.Height], [b.X + b.Width, b.Y, r, b.Height]]
+    Show(hwnd, duration := 0) {
+        if duration
+            this.Hide()
+        b := duration ? WindowGeometry.VisibleFrame(hwnd) : WindowGeometry.Measure(hwnd)
+        r := Max(1, Round(WindowHighlightView.Thickness * b.Scale))
+        ; 选窗时描外框，限时预览时沿可见窗口的内侧描边，使全屏窗口也能看到边框。
+        margin := duration ? 0 : r
+        x := b.X - margin, y := b.Y - margin, w := b.Width + 2 * margin, h := b.Height + 2 * margin
+        dx := Min(r, w), dy := Min(r, h)
+        rectangles := [[x, y, w, dy], [x, y + h - dy, w, dy], [x, y, dx, h], [x + w - dx, y, dx, h]]
         previousCritical := A_IsCritical
         Critical("On")
         previous := DllCall("SetThreadDpiAwarenessContext", "Ptr", WindowGeometry.PerMonitorV2, "Ptr")
         try {
             for index, rect in rectangles
-                DllCall("SetWindowPos", "Ptr", this.Edges[index].Hwnd, "Ptr", -1,
+                if !DllCall("SetWindowPos", "Ptr", this.Edges[index].Hwnd, "Ptr", -1,
                     "Int", rect[1], "Int", rect[2], "Int", rect[3], "Int", rect[4], "UInt", WindowHighlightView.ShowNoActivate)
+                    throw OSError()
+            if duration
+                SetTimer(this.HideTimer, -duration)
+        } catch as err {
+            this.Hide()
+            throw err
         } finally {
             DllCall("SetThreadDpiAwarenessContext", "Ptr", previous, "Ptr")
             Critical(previousCritical)
@@ -139,11 +153,14 @@ class WindowHighlightView {
     }
 
     Hide() {
+        SetTimer(this.HideTimer, 0)
         for edge in this.Edges
             edge.Hide()
     }
 
     Destroy() {
+        SetTimer(this.HideTimer, 0)
+        this.HideTimer := 0
         for edge in this.Edges
             edge.Destroy()
         this.Edges := []

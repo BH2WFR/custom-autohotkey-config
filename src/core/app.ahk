@@ -39,7 +39,7 @@ class App {
         this.TextActions := TextActions(this.Editor, this.Clipboard, this.Sender, this.Tooltip)
         this.Pointer := PointerActions(this.MouseSender, this.MouseSettings)
         this.Windows := WindowActions(this.Tooltip)
-        this.WindowInspector := WindowInspectorActions(WindowInspectorView, this.Windows, this.Tooltip)
+        this.WindowInspector := WindowInspectorLauncher(root, this.Tooltip)
         this.Keys := KeyboardActions(this.Sender, this.Tooltip)
         this.PathActions := PathMenuActions(this.Tooltip, ObjBindMethod(ShellTools, "Open"))
         this.Wheel := WheelActions(this.MouseSender, this.Sender, this.Tooltip, this.MouseSettings)

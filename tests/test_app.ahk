@@ -8,8 +8,6 @@
 #Include ../src/lib/text.ahk
 #Include ../src/lib/editing.ahk
 #Include ../src/lib/window.ahk
-#Include ../src/lib/window_info.ahk
-#Include ../src/lib/process.ahk
 #Include ../src/lib/shell.ahk
 #Include ../src/lib/ime.ahk
 #Include ../src/lib/mouse.ahk
@@ -43,7 +41,7 @@
 #Include ../src/actions/middle_drag.ahk
 #Include ../src/actions/xbuttons.ahk
 #Include ../src/actions/window.ahk
-#Include ../src/actions/window_inspector.ahk
+#Include ../src/actions/window_inspector_launcher.ahk
 #Include ../src/actions/keyboard.ahk
 #Include ../src/actions/paths.ahk
 #Include ../src/actions/clipboard.ahk
@@ -65,9 +63,6 @@
 #Include ../src/rules/tray.ahk
 #Include ../src/ui/tray.ahk
 #Include ../src/ui/popup_menu.ahk
-#Include ../src/ui/window_picker.ahk
-#Include ../src/ui/window_inspector.ahk
-#Include ../src/ui/dpi_gui.ahk
 #Include ../src/core/app.ahk
 #Include ../src/core/runtime_errors.ahk
 

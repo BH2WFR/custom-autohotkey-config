@@ -7,6 +7,8 @@ class WindowInspectorView {
     static Gap := 6
     static Row := 24
     static ListTop := 208
+    static VerticalSeparator := 0x11 ; SS_ETCHEDVERT
+    static ActionButtonWidth := 80
     static MiB := 1024 * 1024
     static ControlsPrompt := "请先点击『读取控件』按钮"
     static Priorities := ["Low", "BelowNormal", "Normal", "AboveNormal", "High", "Realtime"]
@@ -26,7 +28,7 @@ class WindowInspectorView {
         this.Gui.OnEvent("Escape", ObjBindMethod(this, "Escape"))
         this.Finder := this.Gui.AddText("x8 y4 w34 h30 Center +0x100", "◎")
         this.Finder.SetFont("s18", "Segoe UI Symbol")
-        this.Search := this.Gui.AddComboBox("x50 y8 w630 h24")
+        this.Search := this.Gui.AddComboBox("x50 y8 w630 r12")
         this.ListButton := this.Button("刷新列表", "RefreshList", 686, 8, 80)
         this.FindButton := this.Button("查找", "Search", 772, 8, 70, "Default")
         this.Hidden := this.Gui.AddCheckbox("x8 y38 w118 h24", "包含隐藏窗口")
@@ -35,12 +37,21 @@ class WindowInspectorView {
         this.Topmost.OnEvent("Click", (*) => this.SetTopmost(this.Topmost.Value))
         this.Button("刷新信息", "Refresh", 204, 38, 78)
         this.Button("读取控件", "Controls", 288, 38, 78)
-        this.Priority := this.Gui.AddDropDownList("x522 y38 w140 h24 Choose3", WindowInspectorView.Priorities)
+        this.Priority := this.Gui.AddDropDownList("x522 y38 w140 r6 Choose3", WindowInspectorView.Priorities)
         this.Button("设置优先级", "Priority", 668, 38, 100)
-        for index, item in [["文件属性", "Properties"], ["打开路径", "OpenPath"], ["激活窗口", "Activate"],
-            ["窗口居中", "Center"], ["重置大小", "ResetSize"], ["关闭窗口", "CloseWindow"],
-            ["重启进程", "Restart"], ["终止进程", "Terminate"]]
-            this.Button(item[1], item[2], 8 + (index - 1) * 98, 68, 92)
+        x := WindowInspectorView.Margin
+        for item in [["文件属性", "Properties"], ["打开路径", "OpenPath"], [],
+            ["激活窗口", "Activate"], ["窗口居中", "Center"], ["重置大小", "ResetSize"], ["显示边界", "ShowBorder"], [],
+            ["关闭窗口", "CloseWindow"], ["重启进程", "Restart"], ["终止进程", "Terminate"]] {
+            if item.Length {
+                this.Button(item[1], item[2], x, 68, WindowInspectorView.ActionButtonWidth)
+                x += WindowInspectorView.ActionButtonWidth
+            } else {
+                this.Gui.AddText("x" x " y71 w2 h18 +" WindowInspectorView.VerticalSeparator)
+                x += 2
+            }
+            x += WindowInspectorView.Gap
+        }
         this.Fields := Map()
         for index, label in ["标题", "进程", "路径", "命令行"] {
             y := 98 + (index - 1) * 26
@@ -85,6 +96,7 @@ class WindowInspectorView {
     }
 
     Show() {
+        this.Gui.Opt(this.Topmost.Value ? "+AlwaysOnTop" : "-AlwaysOnTop")
         previous := GuiDpi.Enter()
         try this.Gui.Show(this.Shown ? "" : "w" this.Dpi.Px(WindowInspectorView.Width) " h" this.Dpi.Px(WindowInspectorView.Height))
         finally GuiDpi.Leave(previous)
@@ -99,6 +111,10 @@ class WindowInspectorView {
         this.Topmost.Value := enabled
     }
 
+    SuspendTopmost() => this.Gui.Opt("-AlwaysOnTop")
+
+    Highlight(hwnd, duration) => this.Picker.Border.Show(hwnd, duration)
+
     SetWindows(entries) {
         text := this.Search.Text, labels := []
         for entry in entries
@@ -109,6 +125,7 @@ class WindowInspectorView {
     }
 
     Render(data) {
+        this.Picker.Border.Hide()
         this.Search.Text := "ID:" WindowInfo.Hex(data.Hwnd) ", " data.Title
         this.Fields["标题"].Value := data.Title
         this.Fields["进程"].Value := data.ProcessName
@@ -118,7 +135,10 @@ class WindowInspectorView {
         this.ResetControls()
         b := data.Bounds
         rows := [["HWND", WindowInfo.Hex(data.Hwnd)], ["窗口类", data.Class], ["进程 PID", data.Pid],
-            ["线程 ID", data.ThreadId], ["窗口状态", data.State], ["不透明度", Round(data.Opacity / 255 * 100) "%"],
+            ["线程 ID", data.ThreadId], ["窗口状态", data.State], ["窗口置顶", this.YesNo(data.Topmost)],
+            ["分层窗口", this.YesNo(data.Layered)], ["分层鼠标穿透", this.YesNo(data.LayeredClickThrough)],
+            ["不透明度", Round(data.Opacity / 255 * 100) "%"], ["工具窗口", this.YesNo(data.ToolWindow)],
+            ["点击不激活样式", this.YesNo(data.NoActivate)],
             ["位置（物理像素）", b.X ", " b.Y], ["大小（物理像素）", b.Width " × " b.Height],
             ["显示器缩放", Round(b.Scale * 100) "%"], ["Style", WindowInfo.Hex(data.Style)],
             ["ExStyle", WindowInfo.Hex(data.ExStyle)], ["所属进程窗口数", data.WindowCount],
@@ -137,14 +157,15 @@ class WindowInspectorView {
         this.Priority.Choose(data.Priority)
         for row in [["进程启动时间", this.Time(data.Created)], ["用户", data.User], ["管理员权限", data.Elevated],
             ["进程架构", data.Architecture], ["优先级", data.Priority],
-            ["工作集", Format("{:.2f} MiB", data.WorkingSet / WindowInspectorView.MiB)],
-            ["虚拟内存", Format("{:.2f} MiB", data.VirtualSize / WindowInspectorView.MiB)],
+            ["工作集", this.Memory(data.WorkingSet)], ["虚拟内存", this.Memory(data.VirtualSize)],
             ["文件版本", file.Version], ["文件创建时间", this.Time(file.Created)], ["文件修改时间", this.Time(file.Modified)]]
             this.Info.Add(, row*)
         this.Info.ModifyCol(2, "AutoHdr")
     }
 
     Time(value) => value == "" ? "" : FormatTime(value, "yyyy-MM-dd HH:mm:ss")
+    YesNo(value) => value ? "是" : "否"
+    Memory(bytes) => IsNumber(bytes) ? Format("{:.2f} MiB", bytes / WindowInspectorView.MiB) : ""
 
     ResetControls() {
         this.ControlsLoaded := false
@@ -183,9 +204,15 @@ class WindowInspectorView {
     SetStatus(text) => this.Status.Text := text
 
     Confirm(message) {
+        return this.Dialog(message, "YesNo Icon? Default2") == "Yes"
+    }
+
+    Warn(message) => this.Dialog(message, "Icon!")
+
+    Dialog(message, options) {
         this.Gui.Opt("+OwnDialogs")
         previous := GuiDpi.Enter()
-        try return MsgBox(message, WindowInspectorView.Title, "YesNo Icon? Default2") == "Yes"
+        try return MsgBox(message, WindowInspectorView.Title, options)
         finally GuiDpi.Leave(previous)
     }
 
@@ -204,7 +231,7 @@ class WindowInspectorView {
         if state == -1
             return
         margin := this.Dpi.Px(WindowInspectorView.Margin), gap := this.Dpi.Px(WindowInspectorView.Gap)
-        this.Search.Move(,, width - margin - this.Dpi.Px(50 + 162))
+        this.Search.Move(,, width - margin - this.Dpi.Px(50 + 162), GuiDpi.DropHeight(this.Search))
         this.ListButton.Move(width - margin - this.Dpi.Px(156))
         this.FindButton.Move(width - margin - this.Dpi.Px(70))
         for label, field in this.Fields

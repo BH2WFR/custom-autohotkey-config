@@ -48,13 +48,37 @@ class WindowInspectorTests {
             this.Assert(actions.Data.Hwnd == popup.Hwnd && !view.Picker.Dragging
                 && !DllCall("GetCapture", "Ptr"), "Release loads popup and clears capture: data=" actions.Data.Hwnd
                 " popup=" popup.Hwnd " dragging=" view.Picker.Dragging " capture=" DllCall("GetCapture", "Ptr") " status=" view.Status.Text)
-            this.Assert(view.Info.GetCount() == 25 && InStr(view.Fields["命令行"].Value, "test_window_inspector.ahk"), "Picked popup immediately loads process details")
+            this.Assert(view.Info.GetCount() == view.BasicRows + 10 && InStr(view.Fields["命令行"].Value, "test_window_inspector.ahk"), "Picked popup immediately loads process details")
             for edge in view.Picker.Border.Edges
                 this.Assert(!DllCall("IsWindowVisible", "Ptr", edge.Hwnd), "Release hides highlight edge")
         } finally {
             view.Picker.Cancel()
             DllCall("SetPhysicalCursorPos", "Int", NumGet(point, 0, "Int"), "Int", NumGet(point, 4, "Int"))
             popup.Destroy()
+        }
+    }
+
+    static StyleTest(view, actions, target) {
+        overlay := Gui("+ToolWindow +AlwaysOnTop +E0x08000020", "Inspector style test")
+        try {
+            actions.Load(overlay.Hwnd)
+            this.Assert(!actions.Data.LayeredClickThrough, "Transparent style alone does not imply layered click-through")
+            WinSetTransparent(200, overlay.Hwnd)
+            actions.Refresh()
+            rows := Map()
+            loop view.Info.GetCount()
+                rows[view.Info.GetText(A_Index, 1)] := view.Info.GetText(A_Index, 2)
+            for label in ["窗口置顶", "分层窗口", "分层鼠标穿透", "工具窗口", "点击不激活样式"]
+                this.Assert(rows[label] == "是", "Inspector identifies target style: " label)
+            overlay.Opt("-AlwaysOnTop")
+            actions.Refresh()
+            loop view.Info.GetCount() {
+                if view.Info.GetText(A_Index, 1) == "窗口置顶"
+                    this.Assert(view.Info.GetText(A_Index, 2) == "否", "Refresh reflects removal of topmost style")
+            }
+        } finally {
+            overlay.Destroy()
+            actions.Load(target.Hwnd)
         }
     }
     static Run() {
@@ -78,11 +102,13 @@ class WindowInspectorTests {
             this.Assert(controls.Length == 2 && controls[1].Text == "控件内容 test", "Native control text, including Unicode")
             this.Assert(controls[1].Name == "Edit1" && controls[1].Hwnd == edit.Hwnd, "ClassNN and HWND remain paired")
             process := ProcessTools.Read(data.Pid)
-            this.Assert(InStr(process.CommandLine, "test_window_inspector.ahk") && process.Architecture == "x64", "Actual WMI command line and process architecture")
+            this.Assert(InStr(process.CommandLine, "test_window_inspector.ahk") && process.Architecture == "x64", "Actual native command line and process architecture")
+            this.Assert(process.VirtualSize > process.WorkingSet && SubStr(process.Created, 1, 8) == SubStr(A_Now, 1, 8), "Native memory counters and local creation time")
             this.Assert(process.User != "" && process.Priority != "" && process.WorkingSet > 0, "Process owner, priority and memory")
             this.Assert(ProcessTools.FileInfo(data.Path).Version != "", "Executable file version")
             actions.Open({Hwnd: target.Hwnd})
             view := actions.View, handle := view.Handle
+            this.StyleTest(view, actions, target)
             blocker := Gui("+AlwaysOnTop", "Inspector topmost regression")
             try {
                 blocker.Show("w300 h100 NA")
@@ -96,7 +122,24 @@ class WindowInspectorTests {
                 }
             } finally blocker.Destroy()
             this.Assert(actions.Data.Hwnd == target.Hwnd && view.Fields["标题"].Value == target.Title, "Captures original target before showing GUI")
-            this.Assert(view.Info.GetCount() == 25 && InStr(view.Fields["命令行"].Value, "test_window_inspector.ahk"), "Opening immediately loads process details")
+            WinMinimize(target.Hwnd)
+            view.Show()
+            this.Assert(InStr(this.BorderWarning(view), "最小化") && WinGetMinMax(target.Hwnd) == -1, "Border-only warns and leaves minimized target minimized")
+            actions.Activate()
+            edgeHwnd := view.Picker.Border.Edges[1].Hwnd
+            this.Assert(WinActive(target.Hwnd) && WinGetMinMax(target.Hwnd) != -1 && InStr(tip.Text, target.Title) && InStr(tip.Text, "3 秒"), "Activation restores target and names it in the return notice")
+            this.Assert(DllCall("IsWindowVisible", "Ptr", edgeHwnd), "Restored target has a visible preview border")
+            returned := A_TickCount
+            this.Assert(WinWaitActive(handle,, 4) && A_TickCount - returned >= 2700, "Inspector regains focus after the three-second preview")
+            this.Assert(!DllCall("IsWindowVisible", "Ptr", edgeHwnd), "Activation border expires")
+            this.Assert(view.Topmost.Value && (WinGetExStyle(handle) & WindowTools.TopmostStyle), "Preview restores previous topmost preference")
+            view.Dispatch("ShowBorder")
+            this.Assert(WinActive(handle) && DllCall("IsWindowVisible", "Ptr", edgeHwnd), "Border-only keeps focus on inspector")
+            expected := WindowGeometry.VisibleFrame(target.Hwnd), drawn := WindowGeometry.Measure(edgeHwnd)
+            this.Assert(drawn.X == expected.X && drawn.Y == expected.Y && drawn.Width == expected.Width, "Border matches target's visible frame")
+            Sleep(3200)
+            this.Assert(!DllCall("IsWindowVisible", "Ptr", edgeHwnd) && WinActive(handle), "Border-only expires without a focus change")
+            this.Assert(view.Info.GetCount() == view.BasicRows + 10 && InStr(view.Fields["命令行"].Value, "test_window_inspector.ahk"), "Opening immediately loads process details")
             this.Assert(view.ControlList.GetCount() == 1 && view.ControlList.GetText(1) == WindowInspectorView.ControlsPrompt,
                 "Unread controls list shows instruction")
             hasDetailsButton := false
@@ -109,9 +152,9 @@ class WindowInspectorTests {
                 FileAppend(handle, A_ScriptDir "\..\tmp\inspector_preview_hwnd.txt", "UTF-8")
                 Sleep(15000)
             }
-            this.Assert(view.Info.GetCount() == 25 && view.ControlList.GetCount() == 2, "Native lists show basic, process and control data")
+            this.Assert(view.Info.GetCount() == view.BasicRows + 10 && view.ControlList.GetCount() == 2, "Native lists show basic, process and control data")
             actions.Refresh()
-            this.Assert(view.Info.GetCount() == 25 && InStr(view.Fields["命令行"].Value, "test_window_inspector.ahk"), "Refresh automatically replaces process details")
+            this.Assert(view.Info.GetCount() == view.BasicRows + 10 && InStr(view.Fields["命令行"].Value, "test_window_inspector.ahk"), "Refresh automatically replaces process details")
             this.Assert(!view.ControlsLoaded && view.ControlList.GetText(1) == WindowInspectorView.ControlsPrompt, "Refresh resets controls prompt")
             actions.Controls()
             view.CopyInfo(view.Info, 1)
@@ -148,7 +191,10 @@ class WindowInspectorTests {
             this.Assert(leftX + leftW < rightX && rightW > leftW, "Resized lists retain gap and proportions")
             this.DpiTest(view)
             closedHwnd := other.Hwnd
+            actions.Load(closedHwnd)
             other.Destroy()
+            this.Assert(InStr(this.BorderWarning(view), "无法显示窗口边界"), "Destroyed target produces a warning dialog")
+            actions.Load(target.Hwnd)
             actions.Invoke("Load", closedHwnd)
             this.Assert(view.Status.Text != "" && actions.Data.Hwnd == target.Hwnd, "Closed target reports error without replacing snapshot")
             view.Picker.Message(0, 0, WindowPickerView.MouseDown, view.Finder.Hwnd)
@@ -164,6 +210,23 @@ class WindowInspectorTests {
         }
         this.Assert(!actions.View && !actions.Data, "Close releases GUI and target")
         FileAppend("PASS " this.Count " window inspector checks`n", "*")
+    }
+
+    static BorderWarning(view) {
+        this.WarningText := ""
+        dismiss := ObjBindMethod(this, "DismissWarning")
+        SetTimer(dismiss, 50)
+        try view.Dispatch("ShowBorder")
+        finally SetTimer(dismiss, 0)
+        return this.WarningText
+    }
+
+    static DismissWarning() {
+        hwnd := WinExist("ahk_class #32770 ahk_pid " ProcessExist())
+        if hwnd {
+            this.WarningText := WinGetText(hwnd)
+            PostMessage(0x0111, 1, 0,, hwnd) ; WM_COMMAND, IDOK
+        }
     }
 
     static DpiTest(view) {
@@ -187,6 +250,11 @@ class WindowInspectorTests {
                 SendMessage(GuiDpi.ChangedMessage, dpi | (dpi << 16), bounds.Ptr,, view.Handle)
                 Sleep(30)
                 this.Assert(view.Dpi.Scale == dpi / 96, "DPI notification updates view scale")
+                for combo in [view.Priority, view.Search] {
+                    combo.GetPos(,,, &closedHeight)
+                    rowHeight := SendMessage(0x0154, 0, 0, combo) ; CB_GETITEMHEIGHT
+                    this.Assert(GuiDpi.DropHeight(combo) >= closedHeight + 5 * rowHeight, "Dropdown retains multiple visible rows after resize and DPI change")
+                }
                 view.Finder.GetPos(&x, &y, &w, &h)
                 this.Assert(x == view.Dpi.Px(8) && y == view.Dpi.Px(4) && w == view.Dpi.Px(34) && h == view.Dpi.Px(30),
                     "Finder bounds scale from original layout without accumulated rounding")

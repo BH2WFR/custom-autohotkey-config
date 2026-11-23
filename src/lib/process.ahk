@@ -8,38 +8,81 @@ class ProcessTools {
     static Machines := Map(0x014C, "x86", 0x8664, "x64", 0xAA64, "ARM64")
     static StopTimeout := 3
 
+    static CommandLineInformation := 60
+    static VmCounters := 3
+    static TokenUser := 1
+
     static Read(pid) {
-        query := "SELECT ProcessId, CommandLine, CreationDate, WorkingSetSize, VirtualSize FROM Win32_Process WHERE ProcessId=" Integer(pid)
-        for process in ComObjGet("winmgmts:").ExecQuery(query) {
-            data := {CommandLine: process.CommandLine, Created: SubStr(process.CreationDate, 1, 14),
-                WorkingSet: process.WorkingSetSize, VirtualSize: process.VirtualSize,
-                User: "", Elevated: "", Architecture: "", Priority: ""}
-            try {
-                owner := process.ExecMethod_("GetOwner")
-                if owner.ReturnValue == 0
-                    data.User := owner.Domain "\" owner.User
+        handle := DllCall("OpenProcess", "UInt", this.QueryAccess, "Int", false, "UInt", pid, "Ptr")
+        if !handle
+            throw OSError()
+        try {
+            data := {CommandLine: this.CommandLine(handle), Created: this.Created(handle),
+                WorkingSet: "", VirtualSize: "", User: "", Elevated: "", Architecture: "",
+                Priority: this.Priorities.Get(DllCall("GetPriorityClass", "Ptr", handle, "UInt"), "")}
+            ; VM_COUNTERS 字段使用调用方指针宽度，VirtualSize 为虚拟地址空间大小。
+            counters := Buffer(11 * A_PtrSize)
+            if DllCall("ntdll\NtQueryInformationProcess", "Ptr", handle, "Int", this.VmCounters,
+                "Ptr", counters, "UInt", counters.Size, "Ptr", 0, "Int") >= 0 {
+                data.VirtualSize := NumGet(counters, A_PtrSize, "UPtr")
+                data.WorkingSet := NumGet(counters, 4 * A_PtrSize, "UPtr")
             }
-            handle := DllCall("OpenProcess", "UInt", this.QueryAccess, "Int", false, "UInt", pid, "Ptr")
-            if !handle
-                throw OSError()
-            try {
-                data.Priority := this.Priorities.Get(DllCall("GetPriorityClass", "Ptr", handle, "UInt"), "")
-                processMachine := 0, nativeMachine := 0
-                if DllCall("IsWow64Process2", "Ptr", handle, "UShort*", &processMachine, "UShort*", &nativeMachine)
-                    data.Architecture := this.Machines.Get(processMachine ? processMachine : nativeMachine, "")
-                token := 0
-                if DllCall("advapi32\OpenProcessToken", "Ptr", handle, "UInt", this.TokenQuery, "Ptr*", &token) {
-                    try {
-                        elevated := 0, size := 0
-                        if DllCall("advapi32\GetTokenInformation", "Ptr", token, "Int", this.TokenElevation,
-                            "UInt*", &elevated, "UInt", 4, "UInt*", &size)
-                            data.Elevated := elevated ? "是" : "否"
-                    } finally DllCall("CloseHandle", "Ptr", token)
-                }
-            } finally DllCall("CloseHandle", "Ptr", handle)
+            if DllCall("IsWow64Process2", "Ptr", handle, "UShort*", &machine := 0, "UShort*", &native := 0)
+                data.Architecture := this.Machines.Get(machine ? machine : native, "")
+            if DllCall("advapi32\OpenProcessToken", "Ptr", handle, "UInt", this.TokenQuery, "Ptr*", &token := 0) {
+                try {
+                    data.User := this.Account(token)
+                    if DllCall("advapi32\GetTokenInformation", "Ptr", token, "Int", this.TokenElevation,
+                        "UInt*", &elevated := 0, "UInt", 4, "UInt*", &size := 0)
+                        data.Elevated := elevated ? "是" : "否"
+                } finally DllCall("CloseHandle", "Ptr", token)
+            }
             return data
-        }
-        throw TargetError("进程已退出。")
+        } finally DllCall("CloseHandle", "Ptr", handle)
+    }
+
+    static CommandLine(handle) {
+        DllCall("ntdll\NtQueryInformationProcess", "Ptr", handle, "Int", this.CommandLineInformation,
+            "Ptr", 0, "UInt", 0, "UInt*", &size := 0)
+        if !size
+            return ""
+        info := Buffer(size)
+        if DllCall("ntdll\NtQueryInformationProcess", "Ptr", handle, "Int", this.CommandLineInformation,
+            "Ptr", info, "UInt", size, "Ptr", 0, "Int") < 0
+            return ""
+        length := NumGet(info, 0, "UShort") // 2
+        return length ? StrGet(NumGet(info, A_PtrSize, "Ptr"), length, "UTF-16") : ""
+    }
+
+    static Created(handle) {
+        if !DllCall("GetProcessTimes", "Ptr", handle, "Int64*", &created := 0, "Int64*", &ended := 0,
+            "Int64*", &kernel := 0, "Int64*", &user := 0)
+            return ""
+        utc := Buffer(16), localTime := Buffer(16)
+        if !DllCall("FileTimeToSystemTime", "Int64*", &created, "Ptr", utc)
+            || !DllCall("SystemTimeToTzSpecificLocalTime", "Ptr", 0, "Ptr", utc, "Ptr", localTime)
+            return ""
+        return Format("{:04}{:02}{:02}{:02}{:02}{:02}", NumGet(localTime, 0, "UShort"), NumGet(localTime, 2, "UShort"),
+            NumGet(localTime, 6, "UShort"), NumGet(localTime, 8, "UShort"), NumGet(localTime, 10, "UShort"), NumGet(localTime, 12, "UShort"))
+    }
+
+    static Account(token) {
+        DllCall("advapi32\GetTokenInformation", "Ptr", token, "Int", this.TokenUser, "Ptr", 0, "UInt", 0, "UInt*", &size := 0)
+        if !size
+            return ""
+        user := Buffer(size)
+        if !DllCall("advapi32\GetTokenInformation", "Ptr", token, "Int", this.TokenUser, "Ptr", user, "UInt", size, "UInt*", &size)
+            return ""
+        sid := NumGet(user, 0, "Ptr")
+        DllCall("advapi32\LookupAccountSidW", "Ptr", 0, "Ptr", sid, "Ptr", 0, "UInt*", &nameChars := 0,
+            "Ptr", 0, "UInt*", &domainChars := 0, "UInt*", &use := 0)
+        if !nameChars
+            return ""
+        name := Buffer(2 * nameChars), domain := Buffer(2 * Max(1, domainChars), 0)
+        if !DllCall("advapi32\LookupAccountSidW", "Ptr", 0, "Ptr", sid, "Ptr", name, "UInt*", &nameChars,
+            "Ptr", domain, "UInt*", &domainChars, "UInt*", &use)
+            return ""
+        return (domainChars ? StrGet(domain) "\" : "") StrGet(name)
     }
 
     static FileInfo(path) {

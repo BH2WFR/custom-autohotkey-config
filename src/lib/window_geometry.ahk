@@ -4,6 +4,26 @@ class WindowGeometry {
     static NearestMonitor := 2
     static RectBytes := 16
     static PercentBase := 100
+    static ExtendedFrameBounds := 9
+    static Cloaked := 14
+
+    static VisibleFrame(hwnd) {
+        if DllCall("IsIconic", "Ptr", hwnd)
+            throw TargetError("目标窗口已最小化。")
+        if !DllCall("IsWindowVisible", "Ptr", hwnd)
+            throw TargetError("目标窗口已隐藏或关闭。")
+        if DllCall("dwmapi\DwmGetWindowAttribute", "Ptr", hwnd, "UInt", this.Cloaked, "UInt*", &cloaked := 0, "UInt", 4) == 0 && cloaked
+            throw TargetError("目标窗口在当前桌面不可见。")
+        bounds := this.Measure(hwnd), rect := Buffer(this.RectBytes)
+        ; DWM 的物理坐标不包含最大化窗口伸到屏幕外的不可见边缘。
+        if DllCall("dwmapi\DwmGetWindowAttribute", "Ptr", hwnd, "UInt", this.ExtendedFrameBounds, "Ptr", rect, "UInt", rect.Size) == 0 {
+            bounds.X := NumGet(rect, 0, "Int"), bounds.Y := NumGet(rect, 4, "Int")
+            bounds.Width := NumGet(rect, 8, "Int") - bounds.X, bounds.Height := NumGet(rect, 12, "Int") - bounds.Y
+        }
+        if bounds.Width <= 0 || bounds.Height <= 0 || !DllCall("MonitorFromWindow", "Ptr", hwnd, "UInt", 0, "Ptr")
+            throw TargetError("目标窗口没有可显示的屏幕边界。")
+        return bounds
+    }
 
     static Measure(hwnd) {
         previousCritical := A_IsCritical
