@@ -66,7 +66,7 @@ class TriggerRouter {
 
     Cancel() {
         if this.State.Active {
-            this.State.Consume(KeyboardSender.ReadModifiers())
+            this.State.Consume(KeyboardSender.LayerModifiers())
             this.Sender.ReleaseModifiers()
         }
         for target in this.Targets

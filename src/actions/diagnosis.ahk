@@ -10,7 +10,7 @@ class HotkeyDiagnostics {
             . newline "Window: " context.Title
             . newline "Process: " context.Process " | HWND: " Format("0x{:X}", context.Hwnd)
             . newline "Triggers: " this.Join(context.Triggers)
-            . newline "Modifiers (physical): " this.ModifierNames(context.Modifiers)
+            . newline "Modifiers (layer): " this.ModifierNames(context.Modifiers)
             . newline "Modifiers (logical): " this.ModifierNames(context.LogicalModifiers)
             . newline "Layer: " context.Layer " (snapshot; passthrough ignores layer)"
         this.Tooltip.Show(text)

@@ -47,8 +47,8 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 - `ui/window_picker.ahk` 通过鼠标捕获实现拖拽选窗和粗框高亮，按物理坐标及目标显示器缩放绘制，释放、取消或关闭时清理捕获与边框，保留独立弹窗作为目标。
 - 查看器由热键宿主按需启动独立 AHK 进程，使用原生 API 读取进程详情；组合框按展开高度缩放，“激活窗口”按需恢复并置前描边，3 秒后切回；“显示边界”仅描边 3 秒，目标最小化或异常时弹出警告。
 - `src/actions/xbuttons.ahk` 管理侧键生命周期，`src/apps/xbuttons.ahk` 按窗口类别分流，CAJ/PowerISO 模块持有各自布局；`src/lib/window_geometry.ahk` 和 `window_automation.ahk` 仅负责缩放换算、控件点击与点击序列。
-- `py/main.py`：Python 功能入口；`py/text_actions.py`：复杂文本处理；`py/gui/`：tkinter 界面；`py/utils/`：公共辅助模块。
-- AHK 统一管理热键、剪贴板和最终输入，Python 负责复杂处理和 GUI；`src/lib/python.ahk` 仅定位解释器并启动任务，屏幕键盘的单实例窗口及进程归 `src/actions/screen_keyboard.ahk` 管理。
+- `py/text_actions.py` 负责复杂文本处理，`py/gui/` 存放本项目的 tkinter 界面，`py/utils/` 存放公共辅助模块。
+- AHK 管理热键、剪贴板和输入分发，`src/lib/python.ahk` 定位解释器并启动 Python 任务。
 - `src/actions/personal_scripts.ahk` 仅定位私人脚本库并启动相对路径脚本，不包含具体工具、剪贴板或界面逻辑；Unicode 查看器适配位于 `actions/unicode_inspector.ahk`，外部工具不随 AHK 重载退出。
 - `res/`：图标等静态资源；`tests/`：测试；`tmp/`：不提交的调试产物；用户配置仍存放在 `~/.config/custom-autohotkey-config/`。
 - 目录和文件使用小写下划线命名，AHK 类使用 PascalCase；占位文件随功能实现补充。
@@ -65,7 +65,7 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 
 - 软件启动后，仍然保留托盘菜单和图标。托盘菜单中保留屏幕键盘、F1 作为 Layer 触发键（可保存状态）、F2/F3/F4 映射中键/滚动（不保存，启动时默认关闭）、是否交换横向滚动方向、是否开启 Win+鼠标滚轮调节窗口透明度等设置。
 - 软件启动时，自动根据配置获取 conda 环境名称，并查找 python 入口，方便快速启动调用python的功能
-- 物理 Layer 键仅限 CapsLock、F1、F24，默认启用，可在「其他设置 → Layer 键设置」中独立切换并保存。本地 Layer 拦截原键的按下、重复和松开，关闭后原样透传，三项全关时屏幕键盘仍可触发 Layer。F23 不注册为层键或输入法切换键。
+- Layer 键为 CapsLock、F1、F24，默认启用，可在「其他设置 → Layer 键设置」中独立切换并保存。本地 Layer 拦截启用键的按下、重复和松开，关闭的键原样透传。实体键盘和屏幕键盘共用这些开关。
 - README.md 中随时写入各热键的功能介绍，通常每个功能的介绍不超过两句话，仅围绕其核心功能展开，不得出现与核心功能无关的交互、注意事项、或防御性语言等内容；由于功能还不稳定，暂时不写任何与功能说明无关的，如安装指南等内容。
 - 所有 AHK 函数，均应当包裹到 class 中。本项目应当使用 OOP 风格的代码组织方式。
 - 输入法相关功能，需要进行一定简化，取消过多的自定义功能，仅保留常规的几种配置。
@@ -120,18 +120,13 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 - IME 基础接口位于 `src/lib/ime.ahk`，方法表在 `src/rules/ime.ahk`，语言分流在 `src/actions/ime.ahk`；`koreanToggle` 支持 `api`、`hangul`（默认），`japaneseToggle` 支持 `api`、`alt_grave`（默认），韩文汉字使用 VK_HANJA。
 - 同文件中的 `JapaneseIme(sender).Hiragana()` / `.Katakana()` 默认发送 Ctrl+CapsLock / Alt+CapsLock，传入 `JapaneseIme.KanaKey` 改用 Kana / Shift+Kana；日文下分别绑定 Caps+. / Caps+Shift+.。
 - 托盘“重置钩子”由 `HotkeySession` 协调控制器收尾并调用 `NativeHotkeys.ResetHooks()` 强制重装键盘/鼠标钩子，保留开关与暂停状态，不重复注册热键。
-- 屏幕键盘使用 tkinter 复刻 macOS RDP 六行布局，Layer 和修饰键支持单次保留、长按锁定；Windows 非激活窗口不抢焦点，输入经 `actions/screen_keyboard.ahk` 转交 `hotkeys/virtual_keyboard.ahk` 复用注册表及分发器，暂停和关闭清理会话，AHK 退出或重载时关闭所属 Python 窗口。
-- 屏幕键盘不显示或持续监听前台窗口，切换应用不隐藏键盘；操作键盘时核对目标，目标变化则清理上一窗口的按键状态。
-- 屏幕键盘默认 512×197，无最小化按钮；置顶界面显示后再次置前，屏幕键盘提升 Z 序但不抢输入焦点，普通 GUI 同时激活。
+- Caps+S 和托盘「屏幕键盘」共用启动命令，直接运行 PersonalScripts 的 `tools/others/screen-keyboard.py`。每次按 F24、CapsLock、F1 的顺序选用首个启用键，通过 `--force-layer` 临时指定；全关时省略参数。单实例、Prefs 和窗口生命周期归外部工具管理。
+- 外部键盘发送 Windows 键盘事件。热键分发同时识别物理和逻辑修饰键，重复动作结束时仅恢复仍按住的修饰键。
 - 所有项目 GUI 按 96 DPI 逻辑尺寸设计，使用 Per-Monitor V2 和 `WM_DPICHANGED` 同步窗口、字体、控件及最小尺寸；Tk 共用 `py/utils/dpi_window.py`，AHK 共用 `ui/dpi_gui.ahk`，跨屏不轮询、不累积缩放，窗口限制在当前显示器工作区内。
-- 屏幕键盘布局与界面统一放在 `py/gui/screen_keyboard.py`；悬停仅提亮底色，保留前景色，按键使用浅色单像素边框。
-- 屏幕键盘仅在原生窗口拖拽期间暂停布局和外观刷新，`WM_EXITSIZEMOVE` 后按最终尺寸及 DPI 更新一次；系统或外部尺寸变化、显示器 DPI 变化立即刷新，尺寸和 DPI 均未变才跳过布局。
-- “更多”和其右侧的“数字”是独立开关，分别控制下方单行特殊键和右侧小键盘，可同时展开；任一区域展开时每 250 ms 读取锁定键状态，有变化才刷新，NumLock 决定小键盘标签及发送的数字/导航键。
-- 同一 AHK 宿主的 Python 屏幕键盘以 Windows 命名互斥量保证单实例；重复启动等待原窗口就绪，通知其移到鼠标附近后退出新进程。
 - ctypes 原生窗口回调只将命令入队，由阻塞等待的工作线程交给 Tk 主线程，禁止在原生回调中直接调用 Tk。
-- `tests/test_screen_keyboard.ahk` 启动独立编辑窗口及 Python 键盘，通过真实鼠标点击验证四层、修饰键、应用分流、重复触发、Once 吞键和焦点保持。
+- `tests/test_app.ahk --keyboard-only` 验证两个启动入口、重复打开，以及外部键盘发送事件时的四层分流、连续触发和修饰键释放。
 - 暂停时禁止新动作，保留已捕获按键的抬起处理并释放模拟中键；开机启动通过用户启动目录的快捷方式管理。
-- `tests/test_app.ahk` 检查菜单、图标、配置、鼠标收尾、临时启动快捷方式与 Python 窗口生命周期。
+- `tests/test_app.ahk` 检查菜单、图标、配置、鼠标收尾、临时启动快捷方式及外部工具入口。
 - `tests/test_xbuttons.ahk` 检查应用分流、侧键收尾、点击布局及缩放换算；`HotkeySession` 统一切换各输入控制器的启用状态。
 - 中键拖动由 `MiddleDragPolicy` 选择按键、`MiddleDragController` 管理按下到抬起；暂停或退出释放所模拟的按键，窗口切换不改变释放对象，`tests/test_middle_drag.ahk` 验证生命周期及分组。
 - 滚轮优先级为 Layer 连续滚动、Win 透明度、无修饰键的任务栏音量，规则在 `src/rules/wheel.ahk`；`src/lib/touchpad.ahk` 注入双触点，`TouchpadActions` 负责缩放轨迹及暂停/失败收尾，`tests/test_wheel_touchpad.ahk` 验证路由、DPI 和触点生命周期。

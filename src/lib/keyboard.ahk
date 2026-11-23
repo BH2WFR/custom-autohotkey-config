@@ -27,11 +27,38 @@ class KeyboardSender {
     ; Blind 防止发送后恢复已经强制松开的物理修饰键。
     Send(keys, *) => this._Send("{Blind}" keys)
 
-    RestoreModifiers(modifiers) {
+    ; 原生 Layer 接收实体键和 SendInput。动作临时松开按键后，实体键仍由钩子报告。
+    static LayerModifiers() {
+        result := Map()
+        for key in this.ModifierKeys
+            result[key] := GetKeyState(key, "P") || GetKeyState(key)
+        return result
+    }
+
+    ; 注入键没有物理状态，仅在动作执行期间监听真实的抬起；I1 忽略本脚本的 I0 收尾事件。
+    static WatchInjectedReleases(modifiers) {
+        watch := false
+        for key, down in modifiers {
+            if !down || GetKeyState(key, "P")
+                continue
+            if !watch {
+                watch := InputHook("V I1 L0")
+                watch.Held := Map()
+                watch.OnKeyUp := (hook, vk, sc) => hook.Held[vk] := false
+            }
+            watch.Held[GetKeyVK(key)] := true
+            watch.KeyOpt("{" key "}", "N")
+        }
+        if watch
+            watch.Start()
+        return watch
+    }
+
+    RestoreModifiers(modifiers, watch := false) {
         keys := ""
         maskMenu := false
         for key, down in modifiers {
-            if down && GetKeyState(key, "P") && !GetKeyState(key) {
+            if down && (GetKeyState(key, "P") || (watch && watch.Held.Get(GetKeyVK(key), false))) && !GetKeyState(key) {
                 keys .= "{" key " down}"
                 maskMenu := maskMenu || KeyboardSender.MenuModifiers.Has(key)
             }

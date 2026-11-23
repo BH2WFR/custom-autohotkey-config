@@ -33,7 +33,7 @@ class HotkeyTests {
             this.Restores := 0
         }
         ReleaseModifiers() => this.Calls++
-        RestoreModifiers(modifiers) => this.Restores++
+        RestoreModifiers(modifiers, watch := false) => this.Restores++
     }
 
     class Display {
@@ -281,7 +281,7 @@ class HotkeyTests {
         diagnostics := HotkeyDiagnostics(display)
         registry := HotkeyRegistry()
         actions := this.FakeActions()
-        HotkeyBindings.Register(registry, diagnostics, actions, actions, actions, actions, actions, actions, actions, actions, actions, actions, actions, actions, actions, actions, actions)
+        HotkeyBindings.Register(registry, diagnostics, actions, ObjBindMethod(actions, "Open"), actions, actions, actions, actions, actions, actions, actions, actions, actions, actions, actions, actions, actions)
         this.Assert(registry.Resolve("e", 1).Mode == "once" && !registry.Resolve("e", 2), "目录菜单只注册全局第一层且一次性触发")
         this.Assert(registry.Resolve("s", 1).Mode == "once", "GUI 明确注册为一次性动作")
         this.Assert(registry.Resolve("w", 1).Mode == "once" && !registry.Resolve("w", 2), "窗口查看器仅注册第一层一次性动作")

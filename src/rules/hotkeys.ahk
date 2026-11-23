@@ -1,6 +1,6 @@
 ﻿; Pass 保留修饰键，Layers 每层使用一个独立 Map。
 class HotkeyBindings {
-    static Register(registry, diagnostics, ime, keyboard, anki, touchpad, wheel, sender, clipboard, text, mouse, pointer, windows, keys, paths, unicodeInspector, windowInspector) {
+    static Register(registry, diagnostics, ime, openScreenKeyboard, anki, touchpad, wheel, sender, clipboard, text, mouse, pointer, windows, keys, paths, unicodeInspector, windowInspector) {
         registry.Pass("q", ObjBindMethod(keys, "Send", "{Esc}", "Esc"))
         registry.Pass("\", ObjBindMethod(keys, "Send", "{vkE2sc056}", "ISO 反斜杠"))
         registry.Pass("u", ObjBindMethod(mouse, "Click", "LButton"))
@@ -46,7 +46,7 @@ class HotkeyBindings {
             Map(4, ObjBindMethod(diagnostics, "ShowLayer")))
         registry.Layers("-", Map(1, ObjBindMethod(touchpad, "Zoom", TouchpadActions.ZoomOut)), Map(2, ObjBindMethod(wheel, "Horizontal", true)))
         registry.Layers("=", Map(1, ObjBindMethod(touchpad, "Zoom", TouchpadActions.ZoomIn)), Map(2, ObjBindMethod(wheel, "Horizontal", false)))
-        registry.Once("s", Map(1, ObjBindMethod(keyboard, "Open")))
+        registry.Once("s", Map(1, openScreenKeyboard))
         registry.Layers(".", Map(1, ObjBindMethod(ime, "PrimaryMode")), Map(2, ObjBindMethod(ime, "SecondaryMode")))
         for key, up in Map("WheelUp", true, "WheelDown", false)
             registry.Layers(key, Map(1, ObjBindMethod(wheel, "CapsScroll", up)), Map(2, ObjBindMethod(wheel, "CapsScroll", up)))

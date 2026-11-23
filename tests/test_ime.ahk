@@ -21,7 +21,7 @@ class ImeTests {
         __New() => this.Events := []
         Send(keys) => this.Events.Push(keys)
         ReleaseModifiers() => this.Events.Push("releaseModifiers")
-        RestoreModifiers(modifiers) => 0
+        RestoreModifiers(modifiers, watch := false) => 0
     }
     class FakeTooltip {
         Show(text, duration) => this.Text := text

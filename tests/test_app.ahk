@@ -28,9 +28,7 @@
 #Include ../src/hotkeys/dispatcher.ahk
 #Include ../src/hotkeys/triggers.ahk
 #Include ../src/hotkeys/keyboard_hook.ahk
-#Include ../src/hotkeys/virtual_keyboard.ahk
 #Include ../src/actions/diagnosis.ahk
-#Include ../src/actions/screen_keyboard.ahk
 #Include ../src/actions/personal_scripts.ahk
 #Include ../src/actions/unicode_inspector.ahk
 #Include ../src/actions/settings.ahk
@@ -93,6 +91,11 @@ class AppTests {
     }
 
     static Run() {
+        if A_Args.Length && A_Args[1] == "--live-keyboard-launch" {
+            this.ScreenKeyboardHotkey()
+            FileAppend("PASS: CapsLock+S and F24+S displayed the keyboard via the running main script`n", "*")
+            return
+        }
         App.Start(this.Directory, A_ScriptDir "\..")
         OnExit(ObjBindMethod(this, "Cleanup"))
         this.Assert(this.MenuHas(A_TrayMenu, "快捷路径与系统工具") == this.MenuHas(A_TrayMenu, "屏幕键盘") + 1,
@@ -124,10 +127,6 @@ class AppTests {
         }
         if A_Args.Length && A_Args[1] == "--keyboard-only" {
             this.ScreenKeyboard()
-            App.Session.SetPaused(true)
-            this.Assert(!App.VirtualKeyboard.Enabled, "Pause disables screen keyboard input")
-            App.Session.SetPaused(false)
-            this.Assert(App.VirtualKeyboard.Enabled, "Resume enables screen keyboard input")
             App.Stop()
             FileAppend("PASS: " this.Count " screen keyboard app assertions`n", "*", "UTF-8")
             return
@@ -352,11 +351,7 @@ class AppTests {
                     && events[2].Key == key && events[2].Msg == 0x101 && !taps.Length,
                     "Native window receives disabled key down and up exactly once: " key)
             }
-            App.VirtualKeyboard.Handle(Map("command", "begin", "modifiers", []), window.Hwnd)
-            App.VirtualKeyboard.Handle(Map("command", "key", "key", "2", "modifiers", []), window.Hwnd)
-            this.Assert(App.VirtualKeyboard.Used && !App.State.Active, "On-screen keyboard can still dispatch a Layer command")
         } finally {
-            App.VirtualKeyboard.ResetInput()
             OnMessage(0x100, record, 0), OnMessage(0x101, record, 0)
             if GetKeyState("CapsLock")
                 SendEvent("{Blind}{CapsLock up}")
@@ -545,7 +540,7 @@ class AppTests {
             && App.MouseSettings.winWheelTransparency, "Reload applies mouse preferences")
         this.Assert(App.Ime.Settings.chineseToggle == ImeMethods.CtrlSpace
             && App.CapsPolicy.Settings.capsMode == "layer", "Reload updates shared IME and remote settings")
-        this.Assert(App.ScreenKeyboard.Python.Environment == data["Python"]["condaEnvironment"]
+        this.Assert(App.PersonalTools.Python.Environment == data["Python"]["condaEnvironment"]
             && App.Python.Executable == "", "Reload updates Python launcher in place")
         this.Assert(App.Session.Paused && !App.Input.Enabled && !App.XButtons.Enabled
             && App.Mouse.FunctionKeys == functionKeys, "Reload preserves pause and temporary function-key mode")
@@ -599,7 +594,7 @@ class AppTests {
         App.Anki.Sender := keys
         try {
             this.Assert(App.Registry.Resolve("s", 1, window.Hwnd) && !App.Registry.Resolve("s", 2, window.Hwnd), "Screen keyboard only occupies global first layer")
-            this.Assert(!App.Registry.Resolve("w", 1, window.Hwnd), "Anki styles do not capture ordinary windows")
+            this.Assert(App.Registry.Resolve("w", 1, window.Hwnd).Mode == "once", "Outside Anki W opens the window inspector")
             this.Assert(App.Registry.Resolve("e", 1, window.Hwnd) && !App.Registry.Resolve("e", 2, window.Hwnd), "Outside Anki E opens native directory menu only on layer one")
             this.Assert(App.Registry.Resolve("q", 4, window.Hwnd).Mode == "pass", "Outside Anki Q falls back to modifier-preserving Esc")
             this.Assert(App.Registry.Resolve("a", 1, window.Hwnd).Mode == "layers", "Outside Anki A retains default lock toggle")
@@ -676,31 +671,140 @@ class AppTests {
     }
 
     static ScreenKeyboard() {
-        pid := App.ScreenKeyboard.Open()
-        hwnd := WinWait("ahk_pid " pid,, 10)
-        this.Assert(hwnd, "Tkinter keyboard window opens")
-        ready := DllCall("OpenEventW", "UInt", 0x100000, "Int", false,
-            "Str", "Local\custom-autohotkey-config.screen-keyboard." A_ScriptHwnd ".ready", "Ptr")
-        try this.Assert(ready && DllCall("WaitForSingleObject", "Ptr", ready, "UInt", 5000) == 0, "Keyboard publishes its ready window")
-        finally {
-            if ready
-                DllCall("CloseHandle", "Ptr", ready)
+        this.ScreenKeyboardArguments()
+        this.ScreenKeyboardHotkey(true)
+        trayAction := App.Tray.Entries["keyboard"].Item.Action
+        this.Assert(App.Registry.Resolve("s", 1).Callback == trayAction, "Caps+S and the tray use the same external launcher")
+        pid := trayAction.Call()
+        try {
+            ; 外部单实例可能已经在运行，仅关闭本测试实际创建的窗口。
+            hwnd := WinWait("Screen Keyboard ahk_class TkTopLevel",, 8)
+            this.Assert(pid && hwnd, "PersonalScripts screen keyboard opened")
+            duplicate := trayAction.Call()
+            this.Assert(duplicate && !ProcessWaitClose(duplicate, 5) && WinExist(hwnd), "External launcher reuses its window")
+            this.ScreenKeyboardInput()
+        } finally {
+            if pid && (owned := WinExist("Screen Keyboard ahk_class TkTopLevel ahk_pid " pid))
+                WinClose(owned)
         }
-        this.Assert(InStr(WinGetTitle("ahk_id " hwnd), "屏幕键盘"), "Keyboard window title")
-        this.Assert(App.ScreenKeyboard.Open() == pid, "Repeated menu action reuses window")
-        WinMove(10, 10,,, "ahk_id " hwnd)
-        duplicate := App.Python.Launch(App.Root "\py\main.py", ["screen-keyboard", "--host", A_ScriptHwnd], App.Root)
-        this.Assert(!ProcessWaitClose(duplicate, 10), "Duplicate Python process exits")
-        Sleep(200)
-        this.Assert(ProcessExist(pid) && WinExist("ahk_id " hwnd), "Original Python process and window survive")
-        this.Assert(DllCall("IsWindowVisible", "Ptr", hwnd), "Duplicate launch shows the original window")
-        WinGetPos(&x, &y,,, "ahk_id " hwnd)
-        this.Assert(x != 10 || y != 10, "Duplicate launch repositions the original window near the cursor")
-        App.ScreenKeyboard.Stop()
-        this.Assert(!ProcessWaitClose(pid, 5), "Python GUI closes on shutdown")
-        pid := App.ScreenKeyboard.Open()
-        App.ScreenKeyboard.Stop()
-        this.Assert(!ProcessWaitClose(pid, 5), "Shutdown also closes a GUI process still starting")
+    }
+
+    static ScreenKeyboardArguments() {
+        tools := App.PersonalTools, settings := App.Settings
+        try {
+            App.Settings := AppSettings.Keyboard()
+            App.PersonalTools := {Launch: (self, script, args) => args}
+            launch := App.Tray.Entries["keyboard"].Item.Action
+            for key in ["F24", "CapsLock", "F1"] {
+                args := launch.Call()
+                this.Assert(args.Length == 1 && args[1] == "--force-layer=" key,
+                    "Screen keyboard follows the enabled Layer alias: " key)
+                property := CapsPolicy.ConfigurableAliases[key]
+                App.Settings.%property% := false
+            }
+            this.Assert(!launch.Call().Length, "All aliases disabled leaves the keyboard preference in effect")
+        } finally {
+            App.Settings := settings
+            App.PersonalTools := tools
+        }
+    }
+
+    static ScreenKeyboardHotkey(testTray := false) {
+        title := "Screen Keyboard ahk_class TkTopLevel"
+        existing := WinExist(title)
+        keyboard := 0
+        target := Gui(, "Screen keyboard launch test")
+        edit := target.AddEdit("w260")
+        originalLevel := A_SendLevel
+        try {
+            target.Show("Maximize")
+            edit.Focus()
+            this.Assert(WinWaitActive(target.Hwnd,, 2), "Launch test has foreground focus")
+            SendLevel(1)
+            for key in (testTray ? ["tray", "F24", "CapsLock"] : ["F24", "CapsLock"]) {
+                if shown := WinExist(title)
+                    WinHide(shown)
+                this.Assert(!WinExist(title), "Keyboard is absent or hidden before " key "+S")
+                if key == "tray" {
+                    position := this.MenuHas(A_TrayMenu, "屏幕键盘") - 1
+                    command := DllCall("GetMenuItemID", "Ptr", A_TrayMenu.Handle, "Int", position, "UInt")
+                    PostMessage(0x111, command, 0,, A_ScriptHwnd) ; WM_COMMAND from the native menu
+                } else {
+                    SendEvent("{Blind}{" key " down}")
+                    try {
+                        Sleep(50)
+                        SendEvent("{Blind}{s down}")
+                        Sleep(45)
+                        SendEvent("{Blind}{s up}")
+                    } finally SendEvent("{Blind}{" key " up}")
+                }
+                keyboard := WinWait(title,, 5)
+                inFront := keyboard && this.KeyboardInFront(keyboard)
+                this.Assert(inFront && (!shown || keyboard == shown)
+                    && WinActive(target.Hwnd) && edit.Value == "",
+                    key " must display the keyboard above the focused target (in front=" inFront ", focus="
+                    . (!!WinActive(target.Hwnd)) ", style=" (keyboard ? Format("{:x}", WinGetExStyle(keyboard)) : "") ", edit=" edit.Value ")")
+            }
+        } finally {
+            SendLevel(originalLevel)
+            if existing && DllCall("IsWindow", "Ptr", existing) && !DllCall("IsWindowVisible", "Ptr", existing)
+                WinShow(existing)
+            if !existing && (owned := WinExist(title)) {
+                WinClose(owned)
+                WinWaitClose(owned,, 3)
+            }
+            target.Destroy()
+        }
+    }
+
+    static KeyboardInFront(hwnd) {
+        deadline := A_TickCount + 2500
+        loop {
+            WinGetPos(&x, &y, &w, &h, hwnd)
+            point := ((y + h // 2) << 32) | ((x + w // 2) & 0xffffffff)
+            hit := DllCall("WindowFromPoint", "Int64", point, "Ptr")
+            ; Tk temporarily maps a normal window before configuring its nonactivating keyboard.
+            styles := 0x08000000 | 0x8 ; WS_EX_NOACTIVATE | WS_EX_TOPMOST
+            if DllCall("GetAncestor", "Ptr", hit, "UInt", 2, "Ptr") == hwnd && (WinGetExStyle(hwnd) & styles) == styles
+                return true
+            Sleep(50)
+        } until A_TickCount >= deadline
+        return false
+    }
+
+    static ScreenKeyboardInput() {
+        target := Gui(, "Screen keyboard input test"), edit := target.AddEdit("w320")
+        layers := [], callbacks := []
+        try {
+            loop 4 {
+                action := App.Registry.Resolve("2", A_Index)
+                callbacks.Push(action.Callback)
+                action.Callback := ObjBindMethod(this, "RecordScreenLayer", layers)
+            }
+            target.Show()
+            WinActivate(target.Hwnd)
+            this.Assert(WinWaitActive(target.Hwnd,, 2), "Native keyboard test has focus")
+            edit.Focus()
+            script := App.PersonalTools.ResolveScript("tools\others\screen-keyboard.py")
+            pid := App.Python.Launch(A_ScriptDir "\personal_keyboard_input.py", [script.Script, target.Hwnd], App.Root, false)
+            this.Assert(!ProcessWaitClose(pid, 8), "External keyboard input probe finished")
+            actual := ""
+            for layer in layers
+                actual .= layer
+            this.Assert(actual == "112233444" && edit.Value == "" && !App.State.Active,
+                "External SendInput repeats all four layers without typing the bound key: " actual)
+            this.Assert(!GetKeyState("LShift") && !GetKeyState("LAlt"), "Onscreen modifiers released during an action stay up")
+        } finally {
+            for layer, callback in callbacks
+                App.Registry.Resolve("2", layer).Callback := callback
+            target.Destroy()
+        }
+    }
+
+    static RecordScreenLayer(layers, context) {
+        layers.Push(context.Layer)
+        if layers.Length == 9
+            Sleep(300) ; 让键盘在最后一次动作返回前松开修饰键。
     }
 
     static Transparency() {

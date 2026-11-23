@@ -19,7 +19,6 @@ class App {
         this.ImeSettings := this.Config.Register(AppSettings.IME(), "IME")
         this.Config.LoadAll()
         this.Python := PythonRuntime(this.PythonSettings.condaEnvironment)
-        this.ScreenKeyboard := ScreenKeyboard(this.Python, root)
         this.Autorun := Autorun(root)
         this.Tooltip := TooltipPresenter()
         this.Errors := RuntimeErrors(this.Tooltip)
@@ -35,6 +34,7 @@ class App {
         this.PersonalTools := PersonalScripts(this.Python, this.PersonalScriptsSettings, ObjBindMethod(this.Config, "SaveAll"),
             ObjBindMethod(ApplicationActions, "OfferPersonalScriptsInstall"))
         this.UnicodeInspector := UnicodeInspectorActions(this.PersonalTools, this.Clipboard)
+        this.OpenScreenKeyboard := ObjBindMethod(this, "LaunchScreenKeyboard")
         this.Typer := TextTyper(this.Sender, this.ImeApi)
         this.Editor := TextEditor(this.Sender, this.Clipboard)
         this.ClipboardActions := ClipboardActions(this.Clipboard, this.Typer, this.Sender, this.Tooltip)
@@ -49,14 +49,11 @@ class App {
         this.Dispatcher := HotkeyDispatcher(this.State, this.Registry, this.Sender)
         WindowGroups.Register()
         this.CapsPolicy := CapsPolicy(this.RemoteSettings)
-        this.VirtualKeyboard := VirtualKeyboardInput(this.Registry, this.Sender,
-            ObjBindMethod(this.CapsPolicy, "Resolve"), ObjBindMethod(this.Ime, "ToggleLanguage"))
-        this.ScreenKeyboard.Connect(this.VirtualKeyboard)
         this.Triggers := TriggerRouter(this.State, this.Sender, ObjBindMethod(this.CapsPolicy, "Resolve"))
         this.Input := HotkeyInput(this.State, this.Registry, this.Dispatcher, this.Triggers,
             CapsPolicy.Aliases(this.Settings), ObjBindMethod(this.Ime, "ToggleLanguage"))
         this.Paths := PopupMenuView(PathMenuBindings.Create(root), ObjBindMethod(this.PathActions, "Open"))
-        HotkeyBindings.Register(this.Registry, this.Diagnostics, this.Ime, this.ScreenKeyboard, this.Anki, this.Touchpad, this.Wheel,
+        HotkeyBindings.Register(this.Registry, this.Diagnostics, this.Ime, this.OpenScreenKeyboard, this.Anki, this.Touchpad, this.Wheel,
             this.Sender, this.ClipboardActions, this.TextActions, this.MouseSender, this.Pointer, this.Windows, this.Keys, this.Paths, this.UnicodeInspector, this.WindowInspector)
         this.Input.Start()
         this.Mouse := MouseController(this.MouseSettings, this.MouseSender)
@@ -66,7 +63,7 @@ class App {
         this.MiddleDrag := MiddleDragController(this.Sender, ObjBindMethod(MiddleDragPolicy, "Resolve"))
         this.MouseNative := NativeHotkeys()
         MouseBindings.Register(this.MouseNative, this.Mouse, this.XButtons, this.MiddleDrag, this.Input, this.Wheel, this.Windows)
-        this.Session := HotkeySession(this.Tooltip, this.Input, this.Mouse, this.XButtons, this.MiddleDrag, this.Touchpad, this.ScreenKeyboard)
+        this.Session := HotkeySession(this.Tooltip, this.Input, this.Mouse, this.XButtons, this.MiddleDrag, this.Touchpad)
         this.SettingActions := SettingsActions(this.Config)
         this.CreateTray()
         this.ExitCallback := ObjBindMethod(this, "Stop")
@@ -78,7 +75,7 @@ class App {
 
     static CreateTray() {
         commands := Map(
-            "keyboard", ObjBindMethod(this.ScreenKeyboard, "Open"),
+            "keyboard", this.OpenScreenKeyboard,
             "paths", ObjBindMethod(this.Paths, "Show"),
             "windowInspector", ObjBindMethod(this.WindowInspector, "Open"),
             "unicodeInspector", ObjBindMethod(this.UnicodeInspector, "Open"),
@@ -132,6 +129,18 @@ class App {
         this.Tray := TrayView(this.Root, TrayBindings.Create(commands, checks, editors), checks["pause"])
     }
 
+    static LaunchScreenKeyboard(*) {
+        arguments := []
+        for key in ["F24", "CapsLock", "F1"] {
+            property := CapsPolicy.ConfigurableAliases[key]
+            if this.Settings.%property% {
+                arguments.Push("--force-layer=" key)
+                break
+            }
+        }
+        return this.PersonalTools.Launch("tools\others\screen-keyboard.py", arguments)
+    }
+
     static ApplyLayerKeys(*) {
         for key, enabled in CapsPolicy.Aliases(this.Settings)
             this.Input.SetAliasEnabled(key, enabled)
@@ -148,7 +157,7 @@ class App {
     static Stop(*) {
         this.Tooltip.Hide()
         for controller in [this.Input, this.Mouse, this.XButtons, this.MiddleDrag,
-            this.Touchpad, this.MouseNative, this.ScreenKeyboard, this.Windows] {
+            this.Touchpad, this.MouseNative, this.Windows] {
             try controller.Stop()
             catch Error as err
                 this.Errors.Report(err)

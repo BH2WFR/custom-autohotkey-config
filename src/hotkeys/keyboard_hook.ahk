@@ -125,7 +125,7 @@ class HotkeyInput {
             return true
         if !this.Enabled || !this.State.Held.Count
             return false
-        layer := LayerState.LayerOf(KeyboardSender.ReadModifiers())
+        layer := LayerState.LayerOf(KeyboardSender.LayerModifiers())
         hwnd := WinExist("A")
         if !this.Triggers.AllowsLayer(hwnd)
             return false
@@ -139,7 +139,7 @@ class HotkeyInput {
         finally Critical(previousCritical)
     }
 
-    AliasUp(key, *) => this.EndAlias(key, WinExist("A"), KeyboardSender.ReadModifiers())
+    AliasUp(key, *) => this.EndAlias(key, WinExist("A"), KeyboardSender.LayerModifiers())
 
     EndAlias(key, hwnd, modifiers) {
         previousCritical := A_IsCritical
@@ -171,7 +171,7 @@ class HotkeyInput {
                 this.State.Capture(key)
             return
         }
-        modifiers := KeyboardSender.ReadModifiers()
+        modifiers := KeyboardSender.LayerModifiers()
         hwnd := WinExist("A")
         if !this.Triggers.AllowsLayer(hwnd)
             return

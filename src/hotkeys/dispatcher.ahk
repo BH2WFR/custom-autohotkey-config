@@ -7,6 +7,15 @@ class HotkeyDispatcher {
     }
 
     Dispatch(key, context) {
+        watch := false
+        try return this._Dispatch(key, context, &watch)
+        finally {
+            if watch
+                watch.Stop()
+        }
+    }
+
+    _Dispatch(key, context, &watch) {
         previousCritical := A_IsCritical
         Critical("On")
         try {
@@ -20,6 +29,8 @@ class HotkeyDispatcher {
             if binding.Mode == "once"
                 this.State.Consume(context.Modifiers, key)
             if binding.Mode != "pass" {
+                if binding.Mode == "layers"
+                    watch := KeyboardSender.WatchInjectedReleases(context.LogicalModifiers)
                 this.Sender.ReleaseModifiers()
             }
         } finally {
@@ -28,7 +39,7 @@ class HotkeyDispatcher {
         try binding.Callback.Call(context)
         finally {
             if binding.Mode == "layers" && context.RestoreModifiers && this.State.Phase != "Spent"
-                this.Sender.RestoreModifiers(context.LogicalModifiers)
+                this.Sender.RestoreModifiers(context.LogicalModifiers, watch)
         }
         return true
     }

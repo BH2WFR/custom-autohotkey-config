@@ -2,9 +2,9 @@
 
 macOS 姊妹项目：[custom-karabiner-config](https://github.com/BH2WFR/custom-karabiner-config)。
 
-本工程中，Caps+7 Unicode字符查看器会调用此项目中的代码：[PersonalScripts](https://github.com/BH2WFR/PersonalScripts)
+屏幕键盘、Unicode 字符查看器等工具来自 [PersonalScripts](https://github.com/BH2WFR/PersonalScripts)。
 
-托盘「其他设置 → Layer 键设置」可分别开关 CapsLock、F1 和 F24，默认均开启。启用时，本地 Layer 拦截该键的按下、长按重复和松开；关闭后，系统原样接收该键。三项全关时，仍可通过屏幕键盘使用 Layer。
+托盘「其他设置 → Layer 键设置」可分别开关 CapsLock、F1 和 F24，默认均开启。实体键盘和屏幕键盘共用这些开关。启用时，本地 Layer 拦截对应按键，关闭后由系统原样接收。
 
 热键沿用 `Caps+按键` 的写法，其中 Caps 代表任一 Layer 触发键。
 
@@ -35,7 +35,7 @@ macOS 姊妹项目：[custom-karabiner-config](https://github.com/BH2WFR/custom-
 | Caps+P / Caps+Shift+P | 发送 Pause / 切换 ScrollLock。 |
 | Caps+反斜杠 | 发送 ISO 反斜杠键，穿透修饰键。 |
 | Caps+A / Caps+Shift+A | 切换 CapsLock / NumLock。 |
-| Caps+S | 打开屏幕键盘。 |
+| Caps+S | 打开 PersonalScripts 屏幕键盘，再次触发会唤回已有窗口。 |
 | Caps+D / Caps+Shift+D | 显示桌面 / 最小化其他窗口。 |
 | Caps+分号 / Caps+Shift+分号 | 行末添加分号 / 冒号。 |
 | Caps+Enter / Caps+Shift+Enter | 当前行下方 / 上方插入新行。 |
@@ -69,7 +69,7 @@ Layer 未执行热键时，最后一个触发键松开即切换输入法语言�
 
 桌面、任务栏、通知中心和搜索等系统组件不执行窗口置顶、透明度调整或开启穿透。
 
-屏幕键盘和窗口信息查看器按所在显示器的 DPI 缩放，跨屏移动时同步调整字体和布局。
+窗口信息查看器按所在显示器的 DPI 缩放，跨屏移动时同步调整字体和布局。
 
 第 3/4 层（Caps+Alt / Caps+Alt+Shift）：
 
@@ -130,7 +130,7 @@ Shift+侧键在文件管理器及压缩工具中返回上级目录，在其他�
 
 托盘提供以下功能：
 
-- 屏幕键盘：默认 512×197，无最小化按钮；单实例运行，重复启动将原窗口唤到鼠标附近并置前，限制在所在显示器的工作区内且不抢输入焦点。六行彩色布局，Layer 配合 Shift/Alt 使用四层热键，修饰键单击保留至下一次击键、长按锁定；“更多”和“数字”独立开关下方特殊键与右侧小键盘，可同时展开，锁定键底色和小键盘数字/导航标签随系统状态变化。
+- 托盘「屏幕键盘」与 Caps+S 打开或唤回同一窗口。每次打开时，按 F24、CapsLock、F1 的顺序选用第一个已启用的 Layer 键，临时覆盖屏幕键盘的 Prefs 选择。三项全关时沿用 Prefs。
 - 侧键映射：默认开启，切换后立即生效并保存；关闭时保留原始侧键输入。
 - 输入法：中文切换可选 API、Ctrl+Space（默认）、Shift、小狼毫魔改 Ctrl+F20；韩文、日文可分别选择 API 或快捷键，默认使用韩/英键、Alt+反引号。中文标点可选 Ctrl+.（默认）或魔改 Ctrl+F21，各项选择立即生效并保存。
 - 远程桌面/虚拟机：所有 Layer 触发键按远程设置发送 CapsLock、F1、F24 或使用本地 Layer，默认发送 F1，转发时保留修饰键。
