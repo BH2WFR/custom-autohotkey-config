@@ -26,7 +26,7 @@ macOS 姊妹项目：[custom-karabiner-config](https://github.com/BH2WFR/custom-
 | Caps+Backspace / Caps+Shift+Backspace | 删除二字词第一字 / 删除当前行。 |
 | Caps+Tab / Caps+Shift+Tab | 当前行或多行选区缩进 / 取消缩进，使用四个空格并识别制表符。 |
 | Caps+Q | 发送 Esc，穿透修饰键。 |
-| Caps+W | 拖动圆形靶标可定位窗口，查看置顶、鼠标穿透等属性，复制窗口、进程和控件信息，还可调整优先级、重启或终止进程。“激活窗口”会按需恢复目标、置前描边，3 秒后切回查看器；“显示边界”仅描边 3 秒。 |
+| Caps+W | 拖动左侧小圆饼或从列表选窗，可查看窗口、控件和进程信息，调整置顶、穿透和不透明度，最小化窗口或隐藏弹窗。「激活窗口」会按需恢复并置前，沿窗口内侧描边，3 秒后切回查看器。 |
 | Caps+E | 打开原生快捷菜单，包含常用目录、系统设置和系统工具，并显示系统中可用的对应图标。 |
 | Caps+R / Caps+Shift+R | 当前窗口居中 / 重置为 1000×800 后居中，按所在显示器缩放调整。 |
 | Caps+T | 切换当前窗口置顶状态，并显示 Tooltip 提示。 |
@@ -42,7 +42,7 @@ macOS 姊妹项目：[custom-karabiner-config](https://github.com/BH2WFR/custom-
 | Caps+Z | 打字粘贴；临时关闭输入法的中文等输入模式，结束后恢复原状态。ASCII 发送键盘扫描码，非 ASCII 发送文本。 |
 | Caps+X/C / Caps+Shift+X/C | 剪切/复制选区，Shift 处理当前整行。 |
 | Caps+V / Caps+Shift+V | 纯文本粘贴 / 高级粘贴。高级粘贴处理 PDF 折行、网址域名和路径，路径直接转为正斜杠。 |
-| Caps+B | 切换窗口穿透，再按一次恢复此前的窗口。 |
+| Caps+B | 开启穿透时置顶窗口，完全不透明的窗口使用 `settings.json` 中的 `Window.passThroughOpacityPercent`（整数 0–100，默认 59），已有半透明值则保留。再按一次取消置顶并恢复 100% 不透明度，查看器的「窗口穿透」共用此设置。 |
 | Caps+Shift+B | 不透明度按 20%、40%、60%、80%、100% 循环；其他值恢复为 100%。 |
 | Caps+逗号 / Caps+Shift+逗号 | 行末添加逗号 / 添加反斜杠并换行。 |
 | Caps+. | 中文切换中英文标点，韩文发送汉字键，日文切换平假名。 |
@@ -55,7 +55,7 @@ macOS 姊妹项目：[custom-karabiner-config](https://github.com/BH2WFR/custom-
 
 Layer、Alt、Shift 不限按下顺序；分层动作执行时临时释放系统侧修饰键，结束后恢复仍按住的修饰键。
 
-`settings.json` 的 `Mouse.pointerFastStep` 设置 Shift 快速移动的物理像素步长（默认 `10`），`Mouse.wheelMultiplier` 设置 Caps+滚轮倍率（默认 `5`），均为正整数；修改后点击托盘“设置 → 重新读取配置”生效。
+托盘「其他设置」可编辑鼠标快速移动步长（默认 10 像素）、快速滚动倍率（默认 5）、窗口穿透不透明度（默认 59%）、Conda 环境名称和私人脚本库启动器路径。输入框预填当前值，按 Enter 保存并立即应用，按 Esc 取消。手动修改 `settings.json` 后可从托盘「重新读取配置」。
 
 `PersonalScripts.launcherPath` 保存私人脚本库 [PersonalScripts](https://github.com/BH2WFR/PersonalScripts) 的 `run-script.ps1` 或 `run-script.py` 路径；为空或失效时从 PATH 查找并保存。外部工具复用 `Python.condaEnvironment`，按启动器所在目录拼接相对路径后直接运行目标脚本。
 

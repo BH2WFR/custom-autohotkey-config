@@ -69,7 +69,7 @@ class EditingTests {
         caps := GetKeyState("CapsLock", "T")
         this.Window := Gui(, "Editing verification")
         this.Tooltip := TooltipPresenter()
-        this.Windows := WindowActions(this.Tooltip)
+        this.Windows := WindowActions(this.Tooltip, {passThroughOpacityPercent: 59})
         this.Edit := this.Window.AddEdit("w600 h240 Multi WantTab")
         this.Window.Show()
         try {
@@ -255,8 +255,8 @@ class EditingTests {
 
     static AssertBlockedTip() {
         hwnd := WinExist("ahk_class tooltips_class32 ahk_pid " DllCall("GetCurrentProcessId"))
-        this.Assert(hwnd && WinGetTitle("ahk_id " hwnd) == "不可以调整这个窗口`n" this.Window.Title,
-            "Blocked operation displays a native tooltip with the target title")
+        this.Assert(hwnd && WinGetTitle("ahk_id " hwnd) == "不可以调整这个窗口",
+            "Blocked operation displays a native tooltip without the target title")
     }
 }
 try {

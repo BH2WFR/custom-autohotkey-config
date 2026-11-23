@@ -2,17 +2,38 @@
 class WindowInspectorLauncher {
     static EndpointTitle := "WindowInspectorEndpoint"
     static OpenMessage := 0x8003
+    static StyleChangedMessage := 0x8004
+    static PassOpacityMessage := 0x8005
     static ReadyTimeout := 3
     static StartupTipMs := 800
     Pid := 0
     Starting := false
 
-    __New(root, tooltip) {
+    __New(root, tooltip, settings) {
         this.Script := root "\src\ui\window_inspector_main.ahk"
         this.Tooltip := tooltip
+        this.Settings := settings
     }
 
     Endpoint() => this.Pid ? WinExist(WindowInspectorLauncher.EndpointTitle " ahk_class AutoHotkeyGUI ahk_pid " this.Pid) : 0
+
+    NotifyStyleChanged(hwnd) => this.Notify(WindowInspectorLauncher.StyleChangedMessage, hwnd)
+    SyncSettings() => this.Notify(WindowInspectorLauncher.PassOpacityMessage, this.Settings.passThroughOpacityPercent)
+
+    Notify(message, value) {
+        if !this.Pid
+            return
+        previous := A_DetectHiddenWindows
+        DetectHiddenWindows(true)
+        try {
+            if endpoint := this.Endpoint()
+                PostMessage(message, value, A_ScriptHwnd,, endpoint)
+            else if !this.Starting
+                this.Pid := 0
+        } catch TargetError {
+            ; 查看器在消息投递前已经关闭。
+        } finally DetectHiddenWindows(previous)
+    }
 
     Open(context) {
         this.Target := context.Hwnd
@@ -31,6 +52,7 @@ class WindowInspectorLauncher {
                     throw Error("窗口信息查看器未能启动。")
             }
             DllCall("AllowSetForegroundWindow", "UInt", this.Pid)
+            PostMessage(WindowInspectorLauncher.PassOpacityMessage, this.Settings.passThroughOpacityPercent, A_ScriptHwnd,, endpoint)
             PostMessage(WindowInspectorLauncher.OpenMessage, this.Target, A_ScriptHwnd,, endpoint)
         } finally {
             this.Starting := false

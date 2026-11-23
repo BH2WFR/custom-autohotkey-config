@@ -8,9 +8,18 @@ class SettingsActions {
         this.Set(settings, property, !settings.%property%, IsSet(apply) ? apply : unset)
     }
 
+    Edit(dialog, settings, property, apply := 0, *) {
+        dialog.Open(settings.%property%, (value) => this.Set(settings, property, value, apply ? apply : unset))
+    }
+
     Set(settings, property, value, apply := unset, *) {
+        previous := settings.%property%
         settings.%property% := value
-        this.Config.SaveAll()
+        try this.Config.SaveAll()
+        catch as err {
+            settings.%property% := previous
+            throw err
+        }
         if IsSet(apply)
             apply.Call(value)
     }

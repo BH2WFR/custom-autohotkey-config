@@ -1,15 +1,21 @@
 ﻿class WindowActions {
     static DefaultWidth := 1000
     static DefaultHeight := 800
-    static PassOpacity := 150
+    PassOpacity => Round(this.Settings.passThroughOpacityPercent * WindowTools.Opaque / 100)
     static TipDuration := 800
     static PassTipDuration := 1200
     static ErrorDuration := 1800
-    static TitleMaxWidth := 250
     PassHwnd := 0
 
-    __New(tooltip) {
+    __New(tooltip, settings, styleChanged := 0) {
         this.Tooltip := tooltip
+        this.Settings := settings
+        this.StyleChanged := styleChanged
+    }
+
+    NotifyStyleChanged(hwnd) {
+        if this.StyleChanged
+            this.StyleChanged.Call(hwnd)
     }
 
     ; 所有入口共用错误提示，基础窗口库继续抛出原始异常。
@@ -42,15 +48,16 @@
         if !this.CanAdjust(context.Hwnd)
             return
         WindowTools.CycleOpacity(context.Hwnd)
-        alpha := WinGetTransparent("ahk_id " context.Hwnd)
-        percent := alpha == "" ? 100 : Round(alpha / WindowTools.Opaque * 100)
-        this.ShowWindowTip("窗口不透明度：" percent "%", context.Hwnd, WindowActions.TipDuration)
+        this.NotifyStyleChanged(context.Hwnd)
+        percent := Round(WindowTools.GetOpacity(context.Hwnd) / WindowTools.Opaque * 100)
+        this.Tooltip.Show("窗口不透明度：" percent "%", WindowActions.TipDuration)
     }
     _ToggleTopmost(context) {
         if !this.CanAdjust(context.Hwnd)
             return
         enabled := WindowTools.ToggleTopmost(context.Hwnd)
-        this.ShowWindowTip(enabled ? "已置顶当前窗口" : "已取消窗口置顶", context.Hwnd, WindowActions.TipDuration)
+        this.NotifyStyleChanged(context.Hwnd)
+        this.Tooltip.Show(enabled ? "已置顶当前窗口" : "已取消窗口置顶", WindowActions.TipDuration)
     }
     _ShowDesktop() {
         WindowTools.ShowDesktop()
@@ -63,17 +70,18 @@
 
     _TogglePassThrough(context) {
         if this.PassHwnd {
-            hwnd := this.DisablePassThrough()
-            this.ShowWindowTip("已关闭窗口穿透", hwnd, WindowActions.PassTipDuration)
+            this.DisablePassThrough()
+            this.Tooltip.Show("已关闭窗口穿透", WindowActions.PassTipDuration)
         }
         else if this.CanAdjust(context.Hwnd) {
             this.PassHwnd := context.Hwnd
-            try WindowTools.PassThrough(this.PassHwnd, true, WindowActions.PassOpacity)
+            try WindowTools.PassThrough(this.PassHwnd, true, this.PassOpacity)
             finally {
                 if !DllCall("IsWindow", "Ptr", this.PassHwnd)
                     this.PassHwnd := 0
             }
-            this.ShowWindowTip("已开启窗口穿透，再按一次恢复", this.PassHwnd, WindowActions.PassTipDuration)
+            this.NotifyStyleChanged(this.PassHwnd)
+            this.Tooltip.Show("已开启窗口穿透`n再按一次恢复", WindowActions.PassTipDuration)
         }
     }
 
@@ -83,8 +91,9 @@
             return 0
         try {
             WindowTools.RequireWindow(hwnd)
-            WindowTools.PassThrough(hwnd, false, WindowActions.PassOpacity)
+            WindowTools.PassThrough(hwnd, false, this.PassOpacity)
             this.PassHwnd := 0
+            this.NotifyStyleChanged(hwnd)
             return hwnd
         } finally {
             ; 窗口关闭后清掉失效记录；仍存在的窗口保留记录以便再次关闭穿透。
@@ -98,21 +107,18 @@
         if !this.CanAdjust(hwnd)
             return
         value := WindowActions.AdjustTransparency(delta, hwnd)
-        if IsNumber(value)
-            this.ShowWindowTip("窗口不透明度：" Round(value / WindowTools.Opaque * 100) "%", hwnd, WindowActions.TipDuration)
+        if IsNumber(value) {
+            this.NotifyStyleChanged(hwnd)
+            this.Tooltip.Show("窗口不透明度：" Round(value / WindowTools.Opaque * 100) "%", WindowActions.TipDuration)
+        }
     }
 
     CanAdjust(hwnd) {
         WindowTools.RequireWindow(hwnd)
         if !WindowGroups.Matches(WindowGroups.WindowFixed, hwnd)
             return true
-        this.ShowWindowTip("不可以调整这个窗口", hwnd, WindowActions.TipDuration)
+        this.Tooltip.Show("不可以调整这个窗口", WindowActions.TipDuration)
         return false
-    }
-
-    ShowWindowTip(message, hwnd, duration) {
-        title := WinGetTitle("ahk_id " hwnd)
-        this.Tooltip.ShowWithDetail(message, title, WindowActions.TitleMaxWidth, duration)
     }
 
     static AdjustTransparency(delta, hwnd := 0) {
@@ -120,11 +126,9 @@
         WindowTools.RequireWindow(hwnd)
         if WindowGroups.Matches(WindowGroups.WindowFixed, hwnd)
             return
-        target := "ahk_id " hwnd
-        current := WinGetTransparent(target)
-        current := current == "" ? 255 : current
-        value := Min(255, Max(35, current + delta))
-        WinSetTransparent(value == 255 ? "Off" : value, target)
+        current := WindowTools.GetOpacity(hwnd)
+        value := Min(WindowTools.Opaque, Max(35, current + delta))
+        WindowTools.SetOpacity(hwnd, value)
         return value
     }
 }

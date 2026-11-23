@@ -4,6 +4,7 @@
 ; 显式引用模块，由 App 组装。
 #Include src/lib/json.ahk
 #Include src/lib/config.ahk
+#Include src/lib/input_rule.ahk
 #Include src/lib/python.ahk
 #Include src/lib/keyboard.ahk
 #Include src/lib/typing.ahk
@@ -66,6 +67,9 @@
 #Include src/rules/wheel.ahk
 #Include src/rules/middle_drag.ahk
 #Include src/rules/tray.ahk
+#Include src/rules/setting_inputs.ahk
+#Include src/ui/dpi_gui.ahk
+#Include src/ui/settings_input.ahk
 #Include src/ui/tray.ahk
 #Include src/ui/popup_menu.ahk
 #Include src/core/app.ahk

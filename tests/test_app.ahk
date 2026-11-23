@@ -1,6 +1,7 @@
 ﻿#Requires AutoHotkey v2.0
 #Include ../src/lib/json.ahk
 #Include ../src/lib/config.ahk
+#Include ../src/lib/input_rule.ahk
 #Include ../src/lib/python.ahk
 #Include ../src/lib/keyboard.ahk
 #Include ../src/lib/typing.ahk
@@ -61,6 +62,9 @@
 #Include ../src/rules/wheel.ahk
 #Include ../src/rules/middle_drag.ahk
 #Include ../src/rules/tray.ahk
+#Include ../src/rules/setting_inputs.ahk
+#Include ../src/ui/dpi_gui.ahk
+#Include ../src/ui/settings_input.ahk
 #Include ../src/ui/tray.ahk
 #Include ../src/ui/popup_menu.ahk
 #Include ../src/core/app.ahk
@@ -91,6 +95,13 @@ class AppTests {
     static Run() {
         App.Start(this.Directory, A_ScriptDir "\..")
         OnExit(ObjBindMethod(this, "Cleanup"))
+        if A_Args.Length && A_Args[1] == "--settings-only" {
+            this.ReloadSettings()
+            this.InputDialogs()
+            App.Stop()
+            FileAppend("PASS: " this.Count " settings assertions`n", "*", "UTF-8")
+            return
+        }
         if A_Args.Length && A_Args[1] == "--keyboard-only" {
             this.ScreenKeyboard()
             App.Session.SetPaused(true)
@@ -202,10 +213,158 @@ class AppTests {
         return false
     }
 
+    static InputDialogs() {
+        this.TextDialogLayout()
+        for key, group in Map("pointerFastStep", App.MouseSettings, "wheelMultiplier", App.MouseSettings,
+            "passThroughOpacityPercent", App.WindowSettings, "condaEnvironment", App.PythonSettings, "launcherPath", App.PersonalScriptsSettings) {
+            entry := App.Tray.Entries[key]
+            this.Assert(entry.Menu != A_TrayMenu, "Editor is in settings submenu: " key)
+            App.Tray.Invoke(key)
+            hwnd := WinWait(RTrim(entry.Item.Label, "…") " ahk_class AutoHotkeyGUI ahk_pid " ProcessExist(),, 1)
+            this.Assert(hwnd && ControlGetText("Edit1", hwnd) == String(group.%key%), "Editor starts with current value: " key)
+            before := FileRead(App.Config.Path)
+            if key == "passThroughOpacityPercent" {
+                this.Assert(InStr(WinGetText(hwnd), "0–100") && ControlGetHwnd("msctls_updown321", hwnd), "Spin box shows range")
+                original := Integer(ControlGetText("Edit1", hwnd))
+                ControlSend("{Up}", "Edit1", hwnd)
+                this.Assert(ControlGetText("Edit1", hwnd) == original + 1, "Spin arrow increments current value")
+                this.InvalidInput(hwnd, "101", before)
+                ControlSetText("0", "Edit1", hwnd)
+                ControlClick("确定", hwnd)
+                this.Assert(WinWaitClose(hwnd,, 1) && App.Windows.PassOpacity == 0
+                    && Config.LoadJson(App.Config.Path)["Window"][key] == 0, "Corrected zero is applied and saved")
+            } else if key == "condaEnvironment" {
+                this.InvalidInput(hwnd, "a/b", before)
+                ControlSetText("unsaved", "Edit1", hwnd)
+                ControlSend("{Escape}", "Edit1", hwnd)
+                this.Assert(WinWaitClose(hwnd,, 1) && FileRead(App.Config.Path) == before, "Escape discards text")
+                App.Tray.Invoke(key)
+                hwnd := WinWait(RTrim(entry.Item.Label, "…") " ahk_class AutoHotkeyGUI ahk_pid " ProcessExist(),, 1)
+                ControlSetText("tray-test-env", "Edit1", hwnd)
+                ControlSend("{Enter}", "Edit1", hwnd)
+                this.Assert(WinWaitClose(hwnd,, 1) && App.Python.Environment == "tray-test-env"
+                    && Config.LoadJson(App.Config.Path)["Python"][key] == "tray-test-env", "Enter applies and persists text")
+            } else if key == "launcherPath" {
+                this.InvalidInput(hwnd, "missing", before)
+                path := this.Directory "\run-script.ps1"
+                FileAppend("", path)
+                ControlSetText(path, "Edit1", hwnd)
+                ControlClick("确定", hwnd)
+                this.Assert(WinWaitClose(hwnd,, 1) && App.PersonalScriptsSettings.launcherPath == path, "Existing launcher path accepted")
+                App.Tray.Invoke(key)
+                hwnd := WinWait(RTrim(entry.Item.Label, "…") " ahk_class AutoHotkeyGUI ahk_pid " ProcessExist(),, 1)
+                ControlSetText("", "Edit1", hwnd)
+                ControlClick("确定", hwnd)
+                this.Assert(WinWaitClose(hwnd,, 1) && App.PersonalScriptsSettings.launcherPath == "", "Empty path restores PATH lookup")
+            } else {
+                ControlSetText("23", "Edit1", hwnd)
+                if key == "wheelMultiplier"
+                    PostMessage(0x0010, 0, 0,, hwnd) ; WM_CLOSE
+                else
+                    ControlClick("取消", hwnd)
+                this.Assert(WinWaitClose(hwnd,, 1) && FileRead(App.Config.Path) == before, "Cancel or close does not save: " key)
+            }
+        }
+        rule := InputRule.Integer(1, 10, Map(2, true, 3, true, 4, true), (n) => Mod(n, 2) == 0, "只接受偶数")
+        this.Assert(rule.Parse("4") == 4, "Range, set and predicate accept matching integer")
+        for raw in ["0", "1", "3", "11", "2.5", "abc", "18446744073709551618"] {
+            rejected := false
+            try rule.Parse(raw)
+            catch ValueError
+                rejected := true
+            this.Assert(rejected, "Numeric validator rejects " raw)
+        }
+    }
+
+    static TextDialogLayout() {
+        line := ""
+        loop 18
+            line .= "long-path-segment\"
+        for multiline in [false, true] {
+            for wrap in [true, false] {
+                rule := InputRule.Text("输入测试", "", 0, multiline, wrap)
+                dialog := SettingsInputDialog("文本布局测试", rule), saved := []
+                dialog.Open(line, ObjBindMethod(saved, "Push"))
+                try {
+                    Sleep(40)
+                    hwnd := dialog.Gui.Hwnd, input := dialog.Input.Hwnd
+                    this.Assert(WinGetStyle(hwnd) & 0x40000, "Text dialog has a sizing frame")
+                    limits := Buffer(40, 0)
+                    SendMessage(0x24, 0, limits.Ptr,, hwnd) ; WM_GETMINMAXINFO
+                    this.Assert(NumGet(limits, 24, "Int") >= dialog.Dpi.Px(SettingsInputDialog.TextMinWidth)
+                        && NumGet(limits, 28, "Int") >= dialog.Dpi.Px(SettingsInputDialog.TextMinHeight), "Minimum tracking size is enforced")
+                    this.Assert((SendMessage(0xBA, 0, 0, input) > 1) == wrap, "Visual line count follows wrap option")
+                    dialog.Input.GetPos(,, &oldWidth, &oldHeight)
+                    dialog.Gui.GetClientPos(,, &w, &h)
+                    dialog.Gui.Show("w" (w + 110) " h" (h + 50))
+                    Sleep(60)
+                    dialog.Input.GetPos(,, &newWidth, &newHeight)
+                    dialog.Gui.GetClientPos(,, &newW, &newH)
+                    this.Assert(newWidth > oldWidth && newHeight > oldHeight && newWidth - oldWidth == newW - w
+                        && newHeight - oldHeight == newH - h, "Text editor follows both window dimensions")
+                    this.Assert(dialog.Input.Text == line, "Soft wrapping leaves the setting unchanged")
+                    if multiline {
+                        ControlSetText("first", input)
+                        SendMessage(0xB1, 5, 5, input) ; EM_SETSEL
+                        ControlSend("{Enter}", input)
+                        ControlSendText("second", input)
+                        Sleep(60)
+                        this.Assert(dialog.Gui && StrReplace(dialog.Input.Text, "`r") == "first`nsecond",
+                            "Multiline Enter inserts a hard break: " (dialog.Gui ? dialog.Input.Text : "closed"))
+                        ControlClick("确定", hwnd)
+                    } else {
+                        rejected := false
+                        try rule.Parse("first`r`nsecond")
+                        catch ValueError
+                            rejected := true
+                        this.Assert(rejected, "Single-line rule rejects pasted line breaks")
+                        ControlSend("{Enter}", input)
+                    }
+                    this.Assert(WinWaitClose(hwnd,, 1) && saved.Length == 1
+                        && StrReplace(saved[1], "`r") == (multiline ? "first`nsecond" : line), "Saved value matches logical lines")
+                } finally {
+                    if dialog.Gui
+                        dialog.Close()
+                }
+            }
+        }
+    }
+
+    static InvalidInput(hwnd, raw, before) {
+        ControlSetText(raw, "Edit1", hwnd)
+        this.WarningSeen := false
+        dismiss := ObjBindMethod(this, "DismissInputWarning", hwnd, A_TickCount + 3000)
+        SetTimer(dismiss, 30)
+        try {
+            ControlClick("确定", hwnd)
+            deadline := A_TickCount + 3000
+            while !this.WarningSeen && A_TickCount < deadline
+                Sleep(20)
+        } finally SetTimer(dismiss, 0)
+        this.Assert(this.WarningSeen && WinExist(hwnd) && ControlGetText("Edit1", hwnd) == raw
+            && FileRead(App.Config.Path) == before, "Warning preserves rejected input and saved config: " raw)
+    }
+
+    static DismissInputWarning(owner, deadline) {
+        if hwnd := WinExist("ahk_class #32770 ahk_pid " ProcessExist()) {
+            if DllCall("GetWindow", "Ptr", hwnd, "UInt", 4, "Ptr") == owner {
+                this.WarningSeen := true
+                PostMessage(0x00F5, 0, 0, "Button1", hwnd) ; BM_CLICK
+                return
+            }
+        }
+        if A_TickCount > deadline {
+            FileAppend("Timed out waiting for settings warning`n", "**")
+            ExitApp(1)
+        }
+    }
+
     static ReloadSettings() {
         data := Config.LoadJson(App.Config.Path)
         environment := data["Python"]["condaEnvironment"]
         data["Keyboard"]["f1Alias"] := 0
+        this.Assert(data["Window"]["passThroughOpacityPercent"] == 59 && App.Windows.PassOpacity == 150, "Default pass-through opacity round-trips")
+        data["Window"]["passThroughOpacityPercent"] := 42
         data["Mouse"]["xButtonMapping"] := 0
         data["Mouse"]["reverseHorizontal"] := 0
         data["Mouse"]["winWheelTransparency"] := 1
@@ -219,6 +378,7 @@ class AppTests {
         functionKeys := App.Mouse.FunctionKeys
         App.Tray.Invoke("readConfig")
         this.Assert(!App.Settings.f1Alias && !App.Input.Aliases["F1"], "Reload applies F1 alias")
+        this.Assert(App.Windows.PassOpacity == 107, "Reload applies configured pass-through opacity")
         this.Assert(!App.XButtons.MappingEnabled && !App.MouseSettings.reverseHorizontal
             && App.MouseSettings.winWheelTransparency, "Reload applies mouse preferences")
         this.Assert(App.Ime.Settings.chineseToggle == ImeMethods.CtrlSpace
@@ -231,6 +391,17 @@ class AppTests {
         f1 := App.Tray.Entries["f1"]
         this.Assert(!(DllCall("GetMenuState", "Ptr", f1.Menu.Handle,
             "UInt", this.MenuHas(f1.Menu, f1.Item.Label) - 1, "UInt", 0x400) & 8), "Reload refreshes F1 check mark")
+
+        for invalidPercent in [-1, 101, 59.5, "59"] {
+            data["Window"]["passThroughOpacityPercent"] := invalidPercent
+            Config.SaveJson(data, App.Config.Path)
+            rejected := false
+            try App.SettingActions.Reload(ObjBindMethod(App, "ApplySettings"))
+            catch ValueError
+                rejected := true
+            this.Assert(rejected && App.Windows.PassOpacity == 107, "Invalid pass-through opacity preserves last good setting")
+        }
+        data["Window"]["passThroughOpacityPercent"] := 42
 
         data["Keyboard"]["f1Alias"] := 1
         data["Mouse"]["xButtonMapping"] := 9
@@ -395,14 +566,10 @@ class AppTests {
     }
 
     static Cleanup(*) {
-        for name in ["arguments.py", "arguments.json"] {
+        for name in ["arguments.py", "arguments.json", "run-script.ps1", "settings.json", "Custom Autohotkey Config.lnk"] {
             if FileExist(this.Directory "\" name)
                 FileDelete(this.Directory "\" name)
         }
-        if FileExist(this.Directory "\settings.json")
-            FileDelete(this.Directory "\settings.json")
-        if FileExist(this.Directory "\Custom Autohotkey Config.lnk")
-            FileDelete(this.Directory "\Custom Autohotkey Config.lnk")
         if DirExist(this.Directory)
             DirDelete(this.Directory)
     }

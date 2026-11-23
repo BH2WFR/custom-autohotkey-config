@@ -20,6 +20,8 @@ class WindowInspectorWorker extends WindowInspectorActions {
         this.Host := host
         WindowGroups.Register()
         OnMessage(WindowInspectorLauncher.OpenMessage, ObjBindMethod(this, "Receive"))
+        OnMessage(WindowInspectorLauncher.StyleChangedMessage, ObjBindMethod(this, "Receive"))
+        OnMessage(WindowInspectorLauncher.PassOpacityMessage, ObjBindMethod(this, "Receive"))
         this.Endpoint := Gui("+ToolWindow")
         this.Endpoint.OnEvent("Close", (*) => this.Close())
         this.Endpoint.Title := WindowInspectorLauncher.EndpointTitle
@@ -28,9 +30,14 @@ class WindowInspectorWorker extends WindowInspectorActions {
         Persistent()
     }
 
-    Receive(target, host, message, hwnd) {
-        if host == this.Host && hwnd == this.Endpoint.Hwnd
-            this.Open({Hwnd: target})
+    Receive(value, host, message, hwnd) {
+        if host != this.Host || hwnd != this.Endpoint.Hwnd
+            return
+        switch message {
+            case WindowInspectorLauncher.PassOpacityMessage: this.Windows.Settings.passThroughOpacityPercent := value
+            case WindowInspectorLauncher.StyleChangedMessage: this.Invoke("RefreshWindowState", value)
+            case WindowInspectorLauncher.OpenMessage: this.Open({Hwnd: value})
+        }
     }
 
     Close() {
@@ -42,7 +49,7 @@ class WindowInspectorWorker extends WindowInspectorActions {
         host := Integer(A_Args[1])
         TraySetIcon(A_ScriptDir "\..\..\res\MainIcon.ico")
         tip := TooltipPresenter()
-        worker := WindowInspectorWorker(WindowInspectorView, WindowActions(tip), tip, WinGetPID(host))
+        worker := WindowInspectorWorker(WindowInspectorView, WindowActions(tip, {}), tip, WinGetPID(host))
         worker.Start(host)
     }
 }

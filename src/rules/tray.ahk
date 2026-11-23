@@ -4,7 +4,7 @@ class TrayBindings {
     static ShellIcons := A_WinDir "\System32\shell32.dll"
     static FolderIconIndex := 4
     static RefreshIconIndex := 239
-    static Create(commands, checks) {
+    static Create(commands, checks, editors) {
         items := [
             this.Item("keyboard", "屏幕键盘", commands, checks, "Menu_OnScreenKeyboard.ico"),
             "",
@@ -35,8 +35,10 @@ class TrayBindings {
             this.Item("xbuttons", "侧键映射", commands, checks),
             this.Item("reverse", "反转横向滚动", commands, checks),
             this.Item("transparency", "Win + 滚轮调节窗口透明度", commands, checks),
-            {Label: "输入法", Items: ime}, {Label: "远程桌面/虚拟机中的 Layer", Items: remote}, "",
-            this.Item("autorun", "开机启动", commands, checks)]
+            {Label: "输入法", Items: ime}, {Label: "远程桌面/虚拟机中的 Layer", Items: remote}, ""]
+        for item in editors
+            settings.Push(this.Item(item.Key, item.Label "…", commands, checks))
+        settings.Push("", this.Item("autorun", "开机启动", commands, checks))
         items.Push({Label: "其他设置", Items: settings, Icon: this.SettingsIcon, IconIndex: 1}, "",
             this.Item("config", "打开配置目录", commands, checks, this.ShellIcons, this.FolderIconIndex),
             this.Item("readConfig", "重新读取配置", commands, checks, this.ShellIcons, this.RefreshIconIndex),

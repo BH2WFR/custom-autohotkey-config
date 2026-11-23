@@ -5,7 +5,6 @@ class WindowInfo {
     static TextCapacity := 4096
     static RootAncestor := 2
     static ToolWindowStyle := 0x80
-    static LayeredStyle := 0x80000
     static NoActivateStyle := 0x08000000
     static States := Map(-1, "最小化", 0, "正常", 1, "最大化")
 
@@ -51,7 +50,7 @@ class WindowInfo {
                     title := WinGetTitle("ahk_id " hwnd)
                     if title == ""
                         title := "Class: " WinGetClass("ahk_id " hwnd)
-                    result.Push({Hwnd: hwnd, Label: "ID:" this.Hex(hwnd) ", " title})
+                    result.Push({Hwnd: hwnd, Pid: WinGetPID(hwnd), Label: "ID:" this.Hex(hwnd) ", " title})
                 } catch TargetError {
                     continue
                 }
@@ -74,12 +73,12 @@ class WindowInfo {
             data.Style := WinGetStyle(target), data.ExStyle := WinGetExStyle(target)
             data.Topmost := !!(data.ExStyle & WindowTools.TopmostStyle)
             data.ToolWindow := !!(data.ExStyle & this.ToolWindowStyle)
-            data.Layered := !!(data.ExStyle & this.LayeredStyle)
+            data.Layered := !!(data.ExStyle & WindowTools.LayeredStyle)
             data.LayeredClickThrough := data.Layered && !!(data.ExStyle & WindowTools.TransparentStyle)
             data.NoActivate := !!(data.ExStyle & this.NoActivateStyle)
-            alpha := WinGetTransparent(target)
-            data.Opacity := alpha == "" ? 255 : alpha
-            data.State := this.States[WinGetMinMax(target)]
+            data.Opacity := WindowTools.GetOpacity(hwnd)
+            data.Visible := !!DllCall("IsWindowVisible", "Ptr", hwnd)
+            data.State := data.Visible ? this.States[WinGetMinMax(target)] : "隐藏"
             data.Parent := DllCall("GetParent", "Ptr", hwnd, "Ptr")
             data.ParentTitle := "", data.ParentClass := ""
             if data.Parent {

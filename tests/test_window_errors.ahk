@@ -14,7 +14,6 @@ class WindowErrorTests {
     class Tip {
         Messages := []
         Show(text, duration) => this.Messages.Push(text)
-        ShowWithDetail(text, title, width, duration) => this.Messages.Push(text)
     }
     class ClosingActions extends WindowActions {
         CanAdjust(hwnd) {
@@ -32,6 +31,8 @@ class WindowErrorTests {
     }
     class InspectorView {
         Handle := 0
+        SelectedEntry := 0
+        ClearTarget(*) => 0
         __New(commands) {
         }
         SetStatus(text) => this.Status := text
@@ -49,7 +50,8 @@ class WindowErrorTests {
     }
     static Run() {
         WindowGroups.Register()
-        tip := this.Tip(), actions := WindowActions(tip)
+        settings := {passThroughOpacityPercent: 59}
+        tip := this.Tip(), actions := WindowActions(tip, settings)
         target := Gui(), closed := target.Hwnd
         target.Destroy()
         sentinel := Gui(, "Window error verification")
@@ -65,7 +67,7 @@ class WindowErrorTests {
                 this.Assert(WinGetMinMax(sentinel.Hwnd) == 0, "Invalid minimize-others does not minimize unrelated window")
             }
             for method in ["Center", "CycleOpacity", "ToggleTopmost", "TogglePassThrough"] {
-                race := this.ClosingActions(tip)
+                race := this.ClosingActions(tip, settings)
                 race.Target := Gui()
                 race.Target.Show("NA w200 h80")
                 context := {Hwnd: race.Target.Hwnd}
@@ -79,7 +81,7 @@ class WindowErrorTests {
             actions.PassHwnd := closed
             this.ExpectError(ObjBindMethod(actions, "Stop"), tip, "Stop with invalid pass-through")
             this.Assert(!actions.PassHwnd, "Stop clears invalid handle")
-            failure := this.FailingActions(tip)
+            failure := this.FailingActions(tip, settings)
             failure.TargetHwnd := closed
             this.ExpectError(ObjBindMethod(failure, "WheelTransparency", -20), tip, "Wheel transparency target disappeared")
             this.ExpectError(ObjBindMethod(failure, "ShowDesktop"), tip, "System API error")
@@ -92,7 +94,7 @@ class WindowErrorTests {
 
             nativeTip := TooltipPresenter()
             try {
-                WindowActions(nativeTip).Center(false, {Hwnd: closed})
+                WindowActions(nativeTip, settings).Center(false, {Hwnd: closed})
                 tooltipHwnd := WinExist("ahk_class tooltips_class32 ahk_pid " ProcessExist())
                 this.Assert(tooltipHwnd && InStr(ControlGetText(tooltipHwnd), "窗口居中失败"), "Real tooltip displays invalid-window error")
             } finally nativeTip.Hide()

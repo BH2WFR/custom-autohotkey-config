@@ -107,10 +107,13 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 - 托盘图标不冻结：自定义暂停使用 `MainSuspend.ico`，原生 Suspend/Pause 使用 AHK 自带状态图标，恢复后显示项目图标。
 - 托盘顶层保留 F1、F2/F3/F4 映射、打开配置目录及其下方的重新读取配置，侧键映射、反转横向滚动等收进“其他设置”；配置目录上方加分隔线，配置目录、重新读取及其他设置使用系统图标；保留 AHK 原生菜单和双击 Open。
 - JSON 在启动时读取、设置修改和退出时保存；托盘“重新读取配置”即时应用并刷新勾选，保留暂停及 F2/F3/F4 临时状态，读取失败保留原有运行配置。
-- JSON 分组为 `Keyboard`、`Mouse`、`Python`、`PersonalScripts`、`RemoteDesktop`、`IME`；`Python.condaEnvironment` 默认 `base`，F2/F3/F4 模式和暂停状态不持久化。
+- JSON 分组为 `Keyboard`、`Mouse`、`Window`、`Python`、`PersonalScripts`、`RemoteDesktop`、`IME`；`Python.condaEnvironment` 默认 `base`，F2/F3/F4 模式和暂停状态不持久化。
+- Caps+B 和查看器共用 `Window.passThroughOpacityPercent`（整数 0–100，默认 59），重新读取配置后在下次开启穿透时生效。
 - `PersonalScripts.launcherPath` 为空或失效时依次从 PATH 查找 `run-script.ps1`、`run-script.py` 并保存，找不到则弹出错误对话框；仅用其目录定位目标脚本，不执行启动器。
 - `Mouse.xButtonMapping` 默认开启，由托盘“侧键映射”切换并保存；全局暂停独立于此设置。
-- `Mouse.pointerFastStep` 默认 `10`，`Mouse.wheelMultiplier` 默认 `5`，均为仅在 JSON 中编辑的正整数，重新读取后立即生效；Caps+Shift+滚轮每次横向滚动一格。
+- `Mouse.pointerFastStep` 默认 `10`，`Mouse.wheelMultiplier` 默认 `5`，均为正整数；Caps+Shift+滚轮每次横向滚动一格。
+- 托盘「其他设置」可编辑步长、滚轮倍率、穿透不透明度、Conda 环境和启动器路径；规则在 `rules/setting_inputs.ahk` 声明，输入框预填当前值，校验失败弹窗后保留输入，取消不写盘。
+- 字符串设置窗口可双向缩放；`InputRule.Text` 的 `multiline` 默认关闭、`wrap` 默认开启，显示折行不改变保存值。
 - `IME.chineseToggle` 支持 `api`、`ctrl_space`（默认）、`shift`、`weasel`，`chinesePunctuation` 支持 `ctrl_period`（默认）、`weasel`，均可在托盘“输入法”菜单切换保存。
 - IME 基础接口位于 `src/lib/ime.ahk`，方法表在 `src/rules/ime.ahk`，语言分流在 `src/actions/ime.ahk`；`koreanToggle` 支持 `api`、`hangul`（默认），`japaneseToggle` 支持 `api`、`alt_grave`（默认），韩文汉字使用 VK_HANJA。
 - 同文件中的 `JapaneseIme(sender).Hiragana()` / `.Katakana()` 默认发送 Ctrl+CapsLock / Alt+CapsLock，传入 `JapaneseIme.KanaKey` 改用 Kana / Shift+Kana；日文下分别绑定 Caps+. / Caps+Shift+.。

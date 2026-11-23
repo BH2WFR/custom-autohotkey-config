@@ -3,7 +3,9 @@ class WindowTools {
     static MonitorInfoSize := 40
     static WorkAreaOffset := 20
     static TransparentStyle := 0x20
+    static LayeredStyle := 0x80000
     static TopmostStyle := 0x8
+    static MinimizeBoxStyle := 0x20000
     static Opaque := 255
     static OpacityLevels := [51, 102, 153, 204, 255]
 
@@ -46,9 +48,17 @@ class WindowTools {
         return this.Opaque
     }
     static CycleOpacity(hwnd) {
-        target := "ahk_id " hwnd
-        value := this.NextOpacity(WinGetTransparent(target))
-        WinSetTransparent(value == this.Opaque ? "Off" : value, target)
+        this.SetOpacity(hwnd, this.NextOpacity(this.GetOpacity(hwnd)))
+    }
+    static GetOpacity(hwnd) {
+        alpha := WinGetTransparent(hwnd)
+        return alpha == "" ? this.Opaque : alpha
+    }
+    static SetOpacity(hwnd, alpha) {
+        ; 穿透依赖分层窗口，即使完全不透明也要保留分层样式。
+        if alpha == this.Opaque && !(WinGetExStyle(hwnd) & this.TransparentStyle)
+            alpha := "Off"
+        WinSetTransparent(alpha, hwnd)
     }
     static ToggleTopmost(hwnd) {
         enabled := !(WinGetExStyle(hwnd) & this.TopmostStyle)
@@ -56,18 +66,23 @@ class WindowTools {
         return !!(WinGetExStyle(hwnd) & this.TopmostStyle)
     }
     static PassThrough(hwnd, enabled, opacity) {
-        target := "ahk_id " hwnd
-        WinSetAlwaysOnTop(enabled, target)
+        WinSetAlwaysOnTop(enabled, hwnd)
         if enabled {
-            if WinGetTransparent(target) == "" || WinGetTransparent(target) == this.Opaque
-                WinSetTransparent(opacity, target)
-            WinSetExStyle("+" this.TransparentStyle, target)
+            WinSetExStyle("+" this.TransparentStyle, hwnd)
+            if this.GetOpacity(hwnd) == this.Opaque
+                this.SetOpacity(hwnd, opacity)
         } else {
-            WinSetExStyle("-" this.TransparentStyle, target)
-            WinSetTransparent("Off", target)
+            WinSetExStyle("-" this.TransparentStyle, hwnd)
+            this.SetOpacity(hwnd, this.Opaque)
         }
     }
     static ShowDesktop() => WinMinimizeAll()
+    static MinimizeOrHide(hwnd) {
+        if WinGetStyle(hwnd) & this.MinimizeBoxStyle
+            WinMinimize(hwnd)
+        else
+            WinHide(hwnd)
+    }
     static MinimizeOthers(hwnd) {
         this.RequireWindow(hwnd)
         WinMinimizeAll()

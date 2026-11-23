@@ -2,6 +2,10 @@
 class WindowPickerView {
     static MouseDown := 0x0201
     static MouseMove := 0x0200
+    static MouseLeave := 0x02A3
+    static TrackLeave := 2
+    static TipId := 2
+    static Hint := "将此小圆饼拖动到目标窗口，即可查看窗口信息"
     static MouseUp := 0x0202
     static CaptureChanged := 0x0215
     static CancelMode := 0x001F
@@ -9,6 +13,7 @@ class WindowPickerView {
     static CrossCursor := 32515
     Dragging := false
     Target := 0
+    Hovering := false
 
     __New(gui, control, hitTest, selected, status) {
         this.Owner := gui.Hwnd, this.Control := control.Hwnd
@@ -17,7 +22,7 @@ class WindowPickerView {
         this.Cursor := DllCall("LoadCursorW", "Ptr", 0, "Ptr", WindowPickerView.CrossCursor, "Ptr")
         this.Handlers := Map()
         for message in [WindowPickerView.MouseDown, WindowPickerView.MouseMove, WindowPickerView.MouseUp,
-            WindowPickerView.CaptureChanged, WindowPickerView.CancelMode, WindowPickerView.SetCursorMessage] {
+            WindowPickerView.MouseLeave, WindowPickerView.CaptureChanged, WindowPickerView.CancelMode, WindowPickerView.SetCursorMessage] {
             callback := ObjBindMethod(this, "Message")
             this.Handlers[message] := callback
             OnMessage(message, callback)
@@ -25,10 +30,22 @@ class WindowPickerView {
     }
 
     Message(wParam, lParam, message, hwnd) {
+        if hwnd == this.Control {
+            if message == WindowPickerView.MouseMove && !this.Dragging && !this.Hovering {
+                tracking := Buffer(8 + 2 * A_PtrSize, 0)
+                NumPut("UInt", tracking.Size, "UInt", WindowPickerView.TrackLeave, "Ptr", hwnd, tracking)
+                if DllCall("TrackMouseEvent", "Ptr", tracking) {
+                    this.Hovering := true
+                    ToolTip(WindowPickerView.Hint,,, WindowPickerView.TipId)
+                }
+            } else if message == WindowPickerView.MouseLeave
+                this.HideHint()
+        }
         if message == WindowPickerView.MouseDown {
             if hwnd != this.Control
                 return
             this.Border.Hide()
+            this.HideHint()
             this.Dragging := true, this.Target := 0
             DllCall("SetCapture", "Ptr", this.Owner)
             this.OldCursor := DllCall("SetCursor", "Ptr", this.Cursor, "Ptr")
@@ -64,6 +81,13 @@ class WindowPickerView {
         }
     }
 
+    HideHint() {
+        if this.Hovering {
+            ToolTip(,,, WindowPickerView.TipId)
+            this.Hovering := false
+        }
+    }
+
     Update() {
         hwnd := this.HitTest.Call()
         if this.Border.Contains(hwnd)
@@ -92,6 +116,7 @@ class WindowPickerView {
     }
 
     Destroy() {
+        this.HideHint()
         this.Cancel()
         for message, callback in this.Handlers
             OnMessage(message, callback, 0)
@@ -126,11 +151,9 @@ class WindowHighlightView {
     Show(hwnd, duration := 0) {
         if duration
             this.Hide()
-        b := duration ? WindowGeometry.VisibleFrame(hwnd) : WindowGeometry.Measure(hwnd)
+        b := WindowGeometry.VisibleFrame(hwnd)
         r := Max(1, Round(WindowHighlightView.Thickness * b.Scale))
-        ; 选窗时描外框，限时预览时沿可见窗口的内侧描边，使全屏窗口也能看到边框。
-        margin := duration ? 0 : r
-        x := b.X - margin, y := b.Y - margin, w := b.Width + 2 * margin, h := b.Height + 2 * margin
+        x := b.X, y := b.Y, w := b.Width, h := b.Height
         dx := Min(r, w), dy := Min(r, h)
         rectangles := [[x, y, w, dy], [x, y + h - dy, w, dy], [x, y, dx, h], [x + w - dx, y, dx, h]]
         previousCritical := A_IsCritical

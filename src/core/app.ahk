@@ -12,6 +12,7 @@ class App {
         this.Config := Config.Manager("settings.json", directory)
         this.Settings := this.Config.Register(AppSettings.Keyboard(), "Keyboard")
         this.MouseSettings := this.Config.Register(AppSettings.Mouse(), "Mouse")
+        this.WindowSettings := this.Config.Register(AppSettings.Window(), "Window")
         this.PythonSettings := this.Config.Register(AppSettings.Python(), "Python")
         this.PersonalScriptsSettings := this.Config.Register(AppSettings.PersonalScripts(), "PersonalScripts")
         this.RemoteSettings := this.Config.Register(AppSettings.RemoteDesktop(), "RemoteDesktop")
@@ -38,8 +39,8 @@ class App {
         this.ClipboardActions := ClipboardActions(this.Clipboard, this.Typer, this.Sender, this.Tooltip)
         this.TextActions := TextActions(this.Editor, this.Clipboard, this.Sender, this.Tooltip)
         this.Pointer := PointerActions(this.MouseSender, this.MouseSettings)
-        this.Windows := WindowActions(this.Tooltip)
-        this.WindowInspector := WindowInspectorLauncher(root, this.Tooltip)
+        this.WindowInspector := WindowInspectorLauncher(root, this.Tooltip, this.WindowSettings)
+        this.Windows := WindowActions(this.Tooltip, this.WindowSettings, ObjBindMethod(this.WindowInspector, "NotifyStyleChanged"))
         this.Keys := KeyboardActions(this.Sender, this.Tooltip)
         this.PathActions := PathMenuActions(this.Tooltip, ObjBindMethod(ShellTools, "Open"))
         this.Wheel := WheelActions(this.MouseSender, this.Sender, this.Tooltip, this.MouseSettings)
@@ -108,10 +109,18 @@ class App {
                 checks[id] := ObjBindMethod(SettingsActions, "Equals", this.ImeSettings, property, method)
             }
         }
-        this.Tray := TrayView(this.Root, TrayBindings.Create(commands, checks), checks["pause"])
+        editors := SettingInputs.Create(this.MouseSettings, this.WindowSettings, this.PythonSettings, this.PersonalScriptsSettings)
+        apply := Map("condaEnvironment", ObjBindMethod(this.Python, "SetEnvironment"),
+            "passThroughOpacityPercent", (*) => this.WindowInspector.SyncSettings())
+        for item in editors {
+            dialog := SettingsInputDialog(item.Label, item.Rule)
+            commands[item.Key] := ObjBindMethod(this.SettingActions, "Edit", dialog, item.Settings, item.Key, apply.Get(item.Key, 0))
+        }
+        this.Tray := TrayView(this.Root, TrayBindings.Create(commands, checks, editors), checks["pause"])
     }
 
     static ApplySettings() {
+        this.WindowInspector.SyncSettings()
         this.Input.SetAliasEnabled("F1", this.Settings.f1Alias)
         this.XButtons.SetMappingEnabled(this.MouseSettings.xButtonMapping)
         if this.Python.Environment != this.PythonSettings.condaEnvironment

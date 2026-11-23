@@ -27,6 +27,14 @@ class AppSettings {
         }
     }
 
+    class Window extends Config.IConfig {
+        passThroughOpacityPercent := 59
+        CheckValid() {
+            value := this.passThroughOpacityPercent
+            return (value is Integer && value >= 0 && value <= 100) ? "" : "passThroughOpacityPercent 必须为 0 到 100 之间的整数。"
+        }
+    }
+
     class IME extends Config.IConfig {
         chineseToggle := ImeMethods.CtrlSpace
         chinesePunctuation := ImeMethods.CtrlPeriod
