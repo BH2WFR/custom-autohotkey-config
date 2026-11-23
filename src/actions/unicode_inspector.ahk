@@ -8,10 +8,13 @@ class UnicodeInspectorActions {
         this.Clipboard := clipboard
     }
 
-    Open(context) {
+    Open(context := unset) {
         try {
-            selection := this.Clipboard.Read(EditingPolicy.Keys(context.Hwnd).Copy)
-            arguments := selection.Success ? ["--", selection.Text] : []
+            if IsSet(context) {
+                selection := this.Clipboard.Read(EditingPolicy.Keys(context.Hwnd).Copy)
+                arguments := selection.Success ? ["--", selection.Text] : []
+            } else
+                arguments := ["--clip"]
             return this.Scripts.Launch(UnicodeInspectorActions.Script, arguments)
         } catch as err {
             MsgBox(err.Message, UnicodeInspectorActions.Title, "Iconx")

@@ -17,7 +17,7 @@ class RemoteTests {
             this.Releases := 0
         }
         Send(keys) => this.Events.Push(keys)
-        Release(keys) => this.Releases++
+        ReleaseModifiers() => this.Releases++
     }
     static Matches(name, hwnd) => (name == WindowGroups.RemoteDesktop && hwnd == 7)
         || (name == WindowGroups.VirtualMachine && hwnd == 9)
@@ -38,7 +38,7 @@ class RemoteTests {
 
     static Run() {
         for mode in ["CapsLock", "F1", "F24", "layer"] {
-            for alias in ["CapsLock", "F1", "F24", "F6"] {
+            for alias in ["CapsLock", "F1", "F24"] {
                 this.Reset(mode)
                 expected := mode
                 this.Assert(this.Policy.Resolve(alias, 9) == expected, "All VM aliases use the remote setting")
@@ -86,21 +86,21 @@ class RemoteTests {
 
             this.Reset(mode)
             this.Router.Down("CapsLock", 7)
-            this.Router.Down("F6", 7)
+            this.Router.Down("F24", 7)
             this.Router.Up("CapsLock")
             this.Assert(this.Sender.Events.Length == 1, "Shared destination held until every alias releases")
-            this.Router.Up("F6")
+            this.Router.Up("F24")
             this.Assert(this.Sender.Events.Length == 2, "Shared destination emits one paired key-up")
 
             this.Reset(mode)
-            this.Router.Down("F6", 7)
+            this.Router.Down("F24", 7)
             this.Router.Cancel()
-            this.Router.Down("F6", 8)
+            this.Router.Down("F24", 8)
             this.Assert(this.Sender.Events.Length == 2 && !this.State.Active, "Pause releases forwarding and blocks held repeat")
-            this.Router.Up("F6")
-            this.Router.Down("F6", 8)
+            this.Router.Up("F24")
+            this.Router.Down("F24", 8)
             this.Assert(this.State.Active, "Repress in ordinary window enters layer")
-            this.Router.Up("F6")
+            this.Router.Up("F24")
         }
 
         this.Reset("layer")
@@ -112,11 +112,14 @@ class RemoteTests {
         this.Assert(this.State.Phase == "Idle", "Local layer key-up after cancellation")
 
         this.Reset("F1")
-        this.Router.Down("F6", 8)
+        this.Router.Down("F24", 8)
         this.Assert(!this.Router.AllowsLayer(7), "Focus entering remote window blocks local suffix dispatch")
-        this.Router.Up("F6")
+        this.Router.Up("F24")
         this.Assert(!this.Sender.Events.Length && this.State.Phase == "Idle", "Focus change does not invent a forwarded press")
-        this.Router.IgnoreUntilUp("F1")
+        this.Router.IgnoreUntilUp("F1", false)
+        this.Router.Up("F1")
+        this.Assert(!this.Sender.Events.Length, "A held key hidden from the system needs no synthetic release")
+        this.Router.IgnoreUntilUp("F1", true)
         this.Assert(this.Sender.Events[1] == "{F1 up}", "Enabling held alias releases its existing system-side press")
         this.Router.Down("F1", 8)
         this.Assert(!this.State.Active, "Enabling a physically held alias requires release")

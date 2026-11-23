@@ -30,13 +30,9 @@ class HotkeyTests {
     class FakeSender {
         __New() {
             this.Calls := 0
-            this.Triggers := []
             this.Restores := 0
         }
-        Release(triggers) {
-            this.Calls++
-            this.Triggers := triggers.Clone()
-        }
+        ReleaseModifiers() => this.Calls++
         RestoreModifiers(modifiers) => this.Restores++
     }
 
@@ -118,19 +114,19 @@ class HotkeyTests {
             this.Registry.Once("2",
                 Map(1, ObjBindMethod(this, "CleanAction")), Map(2, ObjBindMethod(this, "CleanAction")),
                 Map(3, ObjBindMethod(this, "CleanAction")), Map(4, ObjBindMethod(this, "CleanAction")))
-            this.State.AliasDown("F6")
-            this.State.AliasDown("F6")
+            this.State.AliasDown("F24")
+            this.State.AliasDown("F24")
             this.State.AliasDown("CapsLock")
             this.Assert(this.State.Held.Count == 2, "别名自动重复不重复计数")
             context := this.Context(modifiers)
             this.Assert(context.Layer == expected, "Alt/Shift 层号计算")
             this.Assert(this.Dispatcher.Dispatch("2", context), "执行对应层")
             this.Assert(this.Events[1].Layer == expected, "保留释放前的层快照")
-            this.Assert(this.Sender.Triggers.Length == 2, "释放所有本次触发键")
+            this.Assert(this.Events[1].Triggers.Length == 2, "动作可读取两个被拦截的触发键")
             this.Assert(!this.Dispatcher.Dispatch("2", context), "重复事件不再执行")
             for key in modifiers
                 this.Assert(this.State.Captured.Has(key), "按住的修饰键等待物理松开")
-            this.State.AliasUp("F6")
+            this.State.AliasUp("F24")
             this.Assert(this.State.Phase == "Spent", "只松开一个别名不重新激活")
             this.State.AliasDown("F1")
             this.Assert(this.State.Phase == "Spent", "已消费时按另一别名不能重开")
@@ -153,7 +149,7 @@ class HotkeyTests {
         this.Reset()
         callback := ObjBindMethod(this, "Action")
         this.Registry.Layers("2", Map(1, callback), Map(3, callback))
-        this.State.AliasDown("F6")
+        this.State.AliasDown("F24")
         context := this.Context(Map("LShift", 1))
         this.Assert(!this.Dispatcher.Dispatch("2", context), "未注册的第二层不触发")
         this.Assert(this.State.Active && !this.State.Captured.Count, "未匹配不消费会话或捕获原键")
@@ -169,7 +165,7 @@ class HotkeyTests {
         callback := ObjBindMethod(this, "Action")
         this.Registry.Once("7", Map(1, callback))
         this.Registry.Layers("7", Map(2, callback))
-        this.State.AliasDown("F6")
+        this.State.AliasDown("F24")
         shifted := HotkeyContext("7", Map("LShift", 1), this.State.Triggers())
         this.Dispatcher.Dispatch("7", shifted)
         this.Assert(this.State.Active && this.Events[-1].Mode == "layers", "第二层保留会话")
@@ -186,7 +182,7 @@ class HotkeyTests {
     static Passthrough() {
         this.Reset()
         this.Registry.Pass("1", ObjBindMethod(this, "Action"))
-        this.State.AliasDown("F6")
+        this.State.AliasDown("F24")
         modifiers := Map("LControl", 1, "RShift", 1, "LAlt", 1, "RWin", 1)
         context := HotkeyContext("1", modifiers, this.State.Triggers())
         this.Assert(this.Dispatcher.Dispatch("1", context), "穿透在任意层触发")
@@ -195,7 +191,7 @@ class HotkeyTests {
         this.Assert(!this.Dispatcher.Dispatch("1", context), "按住信息键不反复执行")
         this.State.KeyUp("1")
         this.Assert(this.Dispatcher.Dispatch("1", context), "同一会话可以再次按穿透键")
-        this.State.AliasUp("F6")
+        this.State.AliasUp("F24")
         this.State.KeyUp("1")
         this.Assert(this.State.Phase == "Idle" && !this.State.Captured.Count, "穿透松键收尾")
     }
@@ -205,7 +201,7 @@ class HotkeyTests {
         callback := ObjBindMethod(this, "Action")
         this.Registry.Pass("1", callback)
         this.Registry.App("anki").Once("1", Map(1, ObjBindMethod(this, "CleanAction")))
-        this.State.AliasDown("F6")
+        this.State.AliasDown("F24")
         this.Assert(!this.Registry.Resolve("1", 2, 7), "命中应用后缺失层不回退全局穿透")
         this.Assert(this.Registry.Resolve("1", 4, 8).Mode == "pass", "其他应用使用全局穿透")
         this.Dispatcher.Dispatch("1", HotkeyContext("1", Map(), this.State.Triggers(), 7))
@@ -215,19 +211,19 @@ class HotkeyTests {
     static FailureCleanup() {
         this.Reset()
         this.Registry.Layers("2", Map(1, ObjBindMethod(this, "FailAction")))
-        this.State.AliasDown("F6")
+        this.State.AliasDown("F24")
         this.Throws(ObjBindMethod(this.Dispatcher, "Dispatch", "2", this.Context()), "动作异常传出")
         this.Assert(this.State.Active && this.Sender.Calls == 1 && this.Sender.Restores == 1, "重复动作异常也恢复修饰键并保留层")
         this.Assert(!A_IsCritical, "动作异常不遗留 Critical")
         this.State.KeyUp("2")
-        this.State.AliasUp("F6")
+        this.State.AliasUp("F24")
         this.Assert(this.State.Phase == "Idle", "异常后的松键仍正常")
     }
 
     static Repeated() {
         this.Reset()
         this.Registry.Layers("WheelUp", Map(1, ObjBindMethod(this, "Action")), Map(2, ObjBindMethod(this, "Action")))
-        this.State.AliasDown("F6")
+        this.State.AliasDown("F24")
         for modifiers in [Map(), Map("LShift", true), Map()] {
             this.Assert(this.Dispatcher.Dispatch("WheelUp", this.Context(modifiers)), "连续滚轮可按当前 Shift 状态选择动作")
             this.State.KeyUp("WheelUp")
@@ -235,13 +231,13 @@ class HotkeyTests {
         this.Assert(this.State.Active && this.State.Used && this.Sender.Calls == 3 && this.Sender.Restores == 3, "默认分层动作每次释放并恢复修饰键，不消费 Caps 会话")
         this.Assert(this.Events[2].Layer == 2 && this.Events[3].Layer == 1, "同一会话中可切换横向和纵向")
         this.Assert(!this.Registry.Resolve("WheelUp", 3), "连续滚轮不占用未声明的 Alt 层")
-        this.Assert(!this.State.AliasUp("F6"), "连续滚轮后的 Caps 松开不切换输入法")
+        this.Assert(!this.State.AliasUp("F24"), "连续滚轮后的 Caps 松开不切换输入法")
         this.Assert(NativeHotkeys.IsPulse("WheelUp") && !NativeHotkeys.IsPulse("2"), "滚轮没有 KeyUp 事件")
         this.Reset()
         this.Registry.Layers("WheelUp", Map(1, ObjBindMethod(this, "Action")))
-        this.State.AliasDown("F6")
+        this.State.AliasDown("F24")
         router := TriggerRouter(this.State, this.Sender, (*) => "layer")
-        input := HotkeyInput(this.State, this.Registry, this.Dispatcher, router, Map("F6", true), ObjBindMethod(this, "Action"))
+        input := HotkeyInput(this.State, this.Registry, this.Dispatcher, router, Map("F24", true), ObjBindMethod(this, "Action"))
         input.KeyPulse("WheelUp")
         input.KeyPulse("WheelUp")
         this.Assert(this.Events.Length == 2 && !this.State.Captured.Has("WheelUp"), "输入适配器连续两次滚轮无需等待 KeyUp")
@@ -252,7 +248,7 @@ class HotkeyTests {
         this.Registry.Pass("q", ObjBindMethod(this, "Action"))
         this.Registry.Layers("-", Map(1, ObjBindMethod(this, "Action")), Map(2, ObjBindMethod(this, "Action")))
         this.Registry.Once("2", Map(1, ObjBindMethod(this, "Action")))
-        this.State.AliasDown("F6")
+        this.State.AliasDown("F24")
         for key in ["q", "-", "q", "-"] {
             this.Assert(this.Dispatcher.Dispatch(key, HotkeyContext(key, Map(), this.State.Triggers())), "保留层动作可交替重复执行")
             this.State.KeyUp(key)
@@ -262,17 +258,17 @@ class HotkeyTests {
         this.Assert(!this.State.Active && this.Sender.Calls == 3, "随后执行一次性动作仍正常释放并结束层")
         this.State.KeyUp("2")
         router := TriggerRouter(this.State, this.Sender, (*) => "layer")
-        input := HotkeyInput(this.State, this.Registry, this.Dispatcher, router, Map("F6", true), ObjBindMethod(this, "Action"))
+        input := HotkeyInput(this.State, this.Registry, this.Dispatcher, router, Map("F24", true), ObjBindMethod(this, "Action"))
         this.Assert(input.CanHandle("2"), "一次性动作松开功能键后继续拦截原键")
         input.KeyDown("2")
         this.Assert(this.Events.Length == 5 && this.State.Captured.Has("2"), "重复一次性键只吸收，不执行且等待 KeyUp")
         input.KeyUp("2")
-        this.State.AliasUp("F6")
+        this.State.AliasUp("F24")
         this.Assert(!input.CanHandle("2") && !this.State.Blocked.Count, "Caps 松开后恢复普通按键")
         this.Reset()
         this.Registry.Layers("c", Map(1, ObjBindMethod(this, "Action")))
         this.Registry.App("anki").Layers("c", Map(1, ObjBindMethod(this, "Action")))
-        this.State.AliasDown("F6")
+        this.State.AliasDown("F24")
         loop 2 {
             this.Dispatcher.Dispatch("c", HotkeyContext("c", Map(), this.State.Triggers(), 7))
             this.State.KeyUp("c")
@@ -319,7 +315,7 @@ class HotkeyTests {
             this.Assert(registry.Resolve("1", A_Index).Mode == "pass", "1 是无层穿透绑定")
             this.Assert(registry.Resolve("2", A_Index).Mode == "layers", "2 的四层均独立注册")
         }
-        context := HotkeyContext("1", Map("RAlt", 1), ["F6"], 42)
+        context := HotkeyContext("1", Map("RAlt", 1), ["F24"], 42)
         context.Title := "测试窗口"
         context.Process := "test.exe"
         diagnostics.ShowContext(context)

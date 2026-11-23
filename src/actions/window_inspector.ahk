@@ -31,8 +31,10 @@ class WindowInspectorActions {
                 commands[name] := ObjBindMethod(this, "Invoke", name)
             this.View := this.ViewFactory.Call(commands)
         }
-        this.View.Show()
-        if context.Hwnd != this.View.Handle
+        if !context.Hwnd
+            this.ClearTarget()
+        this.View.Show(!context.Hwnd)
+        if context.Hwnd && context.Hwnd != this.View.Handle
             this.Invoke("Load", context.Hwnd)
     }
 

@@ -11,6 +11,8 @@ WS_EX_TOOLWINDOW = 0x00000080
 WM_MOUSEACTIVATE = 0x0021
 WM_RESET_KEYBOARD = 0x8001
 WM_SHOW_KEYBOARD = 0x8002
+WM_ENTERSIZEMOVE = 0x0231
+WM_EXITSIZEMOVE = 0x0232
 MA_NOACTIVATE = 3
 GA_ROOT = 2
 SW_SHOWNOACTIVATE = 4
@@ -44,9 +46,11 @@ class NonactivatingWindow(DpiWindow):
     def foreground():
         return U.GetForegroundWindow()
 
-    def __init__(self, root, on_reset, on_dpi=lambda dpi: None) -> None:
+    def __init__(self, root, on_reset, on_dpi=lambda dpi: None, on_resize_end=lambda: None) -> None:
         self.root = root
         self.on_reset = on_reset
+        self.on_resize_end = on_resize_end
+        self.is_resizing = False
         # Tk 首次映射会主动 SetActiveWindow；先在禁用状态完成映射。
         root.attributes("-disabled", True)
         root.deiconify()
@@ -62,6 +66,11 @@ class NonactivatingWindow(DpiWindow):
         super().__init__(root, on_dpi)
 
     def _window_proc(self, hwnd, message, wp, lp):
+        if message == WM_ENTERSIZEMOVE:
+            self.is_resizing = True
+        elif message == WM_EXITSIZEMOVE:
+            # 保持暂停，直到 Tk 主线程处理结束通知；原生回调中不调用 Tk。
+            self.commands.put(self.finish_resize)
         if message == WM_MOUSEACTIVATE:
             return MA_NOACTIVATE
         if message == WM_RESET_KEYBOARD:
@@ -71,6 +80,10 @@ class NonactivatingWindow(DpiWindow):
             self.commands.put(self.show)
             return 0
         return super()._window_proc(hwnd, message, wp, lp)
+
+    def finish_resize(self):
+        self.is_resizing = False
+        self.on_resize_end()
 
     def show(self) -> None:
         self.root.update_idletasks()

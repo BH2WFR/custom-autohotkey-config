@@ -3,8 +3,16 @@ class AppSettings {
     static GetDirectory() => EnvGet("USERPROFILE") "\.config\custom-autohotkey-config"
 
     class Keyboard extends Config.IConfig {
+        capsLockAlias := 1
         f1Alias := 1
-        CheckValid() => this.f1Alias == 0 || this.f1Alias == 1 ? "" : "f1Alias 必须为 0 或 1。"
+        f24Alias := 1
+        CheckValid() {
+            for name in ["capsLockAlias", "f1Alias", "f24Alias"] {
+                if this.%name% != 0 && this.%name% != 1
+                    return name " 必须为 0 或 1。"
+            }
+            return ""
+        }
     }
 
     class Mouse extends Config.IConfig {

@@ -1,6 +1,7 @@
 ﻿#Requires AutoHotkey v2.0
 #Include ../src/lib/json.ahk
 #Include ../src/lib/python.ahk
+#Include ../src/utils/filesystem.ahk
 #Include ../src/lib/keyboard.ahk
 #Include ../src/lib/ime.ahk
 #Include ../src/hotkeys/layers.ahk

@@ -16,6 +16,10 @@ PER_MONITOR_AWARE_V2 = -4
 SWP_NOZORDER = 0x0004
 SWP_NOACTIVATE = 0x0010
 MONITOR_DEFAULTTONEAREST = 2
+RDW_INVALIDATE = 0x0001
+RDW_ERASE = 0x0004
+RDW_ALLCHILDREN = 0x0080
+RDW_UPDATENOW = 0x0100
 
 
 class MonitorInfo(C.Structure):
@@ -38,6 +42,7 @@ U.SetThreadDpiAwarenessContext.restype = W.HANDLE
 U.MonitorFromRect.argtypes = [C.POINTER(W.RECT), W.DWORD]
 U.MonitorFromRect.restype = W.HANDLE
 U.GetMonitorInfoW.argtypes = [W.HANDLE, C.POINTER(MonitorInfo)]
+U.RedrawWindow.argtypes = [W.HWND, C.POINTER(W.RECT), W.HANDLE, W.UINT]
 
 
 class DpiWindow:
@@ -106,6 +111,11 @@ class DpiWindow:
         work = info.work
         width, height = min(width, work.right - work.left), min(height, work.bottom - work.top)
         return max(work.left, min(x, work.right - width)), max(work.top, min(y, work.bottom - height)), width, height
+
+    def redraw(self):
+        self.root.update_idletasks()
+        if not U.RedrawWindow(self.hwnd, None, None, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW):
+            raise C.WinError(C.get_last_error())
 
     def close(self):
         self.closed = True

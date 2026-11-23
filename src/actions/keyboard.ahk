@@ -12,7 +12,7 @@ class KeyboardActions {
     }
     Release(context) {
         context.RestoreModifiers := false
-        this.Sender.Release(context.Triggers)
+        this.Sender.ReleaseModifiers()
         this.Tooltip.Show("已释放 Ctrl Alt Shift Win 键", KeyboardActions.ReleaseDuration)
     }
     ToggleLock(key, *) {

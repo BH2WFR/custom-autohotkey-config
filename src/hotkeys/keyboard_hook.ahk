@@ -10,6 +10,7 @@ class HotkeyInput {
         this.Aliases := aliases
         this.Tap := tap
         this.Native := NativeHotkeys()
+        this.Started := false
         this.Enabled := true
         this.MenuExitCallback := ObjBindMethod(this, "MenuExited")
         this.ReconcileCallback := ObjBindMethod(this, "ReconcileReleased")
@@ -18,11 +19,14 @@ class HotkeyInput {
     Start() {
         InstallKeybdHook()
         OnMessage(HotkeyInput.ExitMenuLoopMessage, this.MenuExitCallback)
-        for key in this.Aliases {
-            condition := ObjBindMethod(this, "AliasEnabled", key)
-            this._Register("*" key, ObjBindMethod(this, "AliasDown", key), condition)
-            this._Register("*" key " up", ObjBindMethod(this, "AliasUp", key), condition)
+        for key, enabled in this.Aliases {
+            if enabled && GetKeyState(key)
+                this.Triggers.IgnoreUntilUp(key, true)
+            ; Layer 原键由无条件钩子成对拦截，开关变更时才更新注册状态。
+            this.Native.Add("*" key, ObjBindMethod(this, "AliasDown", key), "", enabled)
+            this.Native.Add("*" key " up", ObjBindMethod(this, "AliasUp", key), "", enabled)
         }
+        this.Started := true
         for key in this.Registry.Bindings {
             pulse := NativeHotkeys.IsPulse(key)
             this._Register("*" key, ObjBindMethod(this, pulse ? "KeyPulse" : "KeyDown", key), ObjBindMethod(this, "CanHandle", key))
@@ -41,6 +45,7 @@ class HotkeyInput {
     }
 
     Stop() {
+        this.Started := false
         OnMessage(HotkeyInput.ExitMenuLoopMessage, this.MenuExitCallback, 0)
         SetTimer(this.ReconcileCallback, 0)
         this.Triggers.Cancel()
@@ -61,8 +66,11 @@ class HotkeyInput {
     ReconcileReleased() {
         ; 已松开的残留记录直接收尾，仍按住的键必须先松开。
         for key in this.Triggers.Held.Clone() {
-            if !GetKeyState(key, "P")
+            if !GetKeyState(key, "P") {
                 this.Triggers.Up(key)
+                if !this.AliasEnabled(key)
+                    this.SyncAlias(key)
+            }
         }
         for key in this.State.Captured.Clone() {
             if !GetKeyState(key, "P")
@@ -71,11 +79,16 @@ class HotkeyInput {
     }
 
     SetAliasEnabled(key, enabled) {
+        if this.Aliases[key] == !!enabled
+            return
         ; 开启时已被按住的键要先松开，不能由重复 KeyDown 新开一轮。
-        if enabled && !this.Aliases[key] && GetKeyState(key, "P") {
-            this.Triggers.IgnoreUntilUp(key)
+        if enabled && this.Enabled && GetKeyState(key, "P") {
+            this.Triggers.IgnoreUntilUp(key, GetKeyState(key))
+        } else if !enabled {
+            this.Triggers.DisableHeld(key)
         }
         this.Aliases[key] := !!enabled
+        this.SyncAlias(key)
     }
 
     SetEnabled(enabled) {
@@ -85,10 +98,21 @@ class HotkeyInput {
         } else {
             for key, active in this.Aliases {
                 if active && GetKeyState(key, "P") {
-                    this.Triggers.IgnoreUntilUp(key)
+                    this.Triggers.IgnoreUntilUp(key, GetKeyState(key))
                 }
             }
         }
+        for key in this.Aliases
+            this.SyncAlias(key)
+    }
+
+    SyncAlias(key) {
+        if !this.Started
+            return
+        state := this.AliasEnabled(key) ? "On" : "Off"
+        HotIf()
+        Hotkey("*" key, state)
+        Hotkey("*" key " up", state)
     }
 
     AliasEnabled(key, *) => (this.Enabled && this.Aliases[key]) || this.Triggers.Held.Has(key)
@@ -125,6 +149,8 @@ class HotkeyInput {
             triggers := this.State.Triggers()
             allowed := this.Triggers.AllowsLayer(hwnd)
             unused := this.Triggers.Up(key)
+            if !this.AliasEnabled(key)
+                this.SyncAlias(key)
             if unused && this.Enabled && hwnd && allowed {
                 context := HotkeyContext(key, modifiers, triggers, hwnd)
                 this.Dispatcher.PrepareTap(context)

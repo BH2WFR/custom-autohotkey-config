@@ -12,9 +12,9 @@ class NativeHotkeys {
         this.Entries := []
     }
 
-    Add(name, callback, condition) {
+    Add(name, callback, condition := "", enabled := true) {
         HotIf(condition)
-        try Hotkey(name, callback, "I0")
+        try Hotkey(name, callback, enabled ? "I0 On" : "I0 Off")
         finally HotIf()
         this.Entries.Push({Name: name, Condition: condition})
     }

@@ -20,7 +20,7 @@ class HotkeyDispatcher {
             if binding.Mode == "once"
                 this.State.Consume(context.Modifiers, key)
             if binding.Mode != "pass" {
-                this.Sender.Release(context.Triggers)
+                this.Sender.ReleaseModifiers()
             }
         } finally {
             Critical(previousCritical)
@@ -37,7 +37,7 @@ class HotkeyDispatcher {
     PrepareTap(context) {
         context.Mode := "tap"
         this.State.Consume(context.Modifiers)
-        this.Sender.Release(context.Triggers)
+        this.Sender.ReleaseModifiers()
     }
 }
 

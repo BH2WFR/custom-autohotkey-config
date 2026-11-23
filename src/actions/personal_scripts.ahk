@@ -1,11 +1,13 @@
 ﻿; 私人脚本库的定位与调用；解释器及进程启动复用 PythonRuntime。
 class PersonalScripts {
     static Launchers := ["run-script.ps1", "run-script.py"]
+    static ProjectUrl := "https://github.com/BH2WFR/PersonalScripts"
 
-    __New(python, settings, save) {
+    __New(python, settings, save, warnMissing) {
         this.Python := python
         this.Settings := settings
         this.Save := save
+        this.WarnMissing := warnMissing
     }
 
     ResolveScript(relativePath) {
@@ -18,19 +20,26 @@ class PersonalScripts {
                     break
             }
             if launcher == ""
-                throw Error("找不到 PersonalScripts 启动器，请在设置中指定 launcherPath，或将 run-script.ps1 / run-script.py 所在目录加入 PATH。")
+                throw TargetError("找不到 PersonalScripts 入口（run-script.ps1 或 run-script.py）。")
             this.Settings.launcherPath := launcher
             this.Save.Call()
         }
         SplitPath(launcher,, &root)
         script := root "\" relativePath
-        if !FileExist(script)
-            throw Error("找不到脚本：" script)
+        attributes := FileExist(script)
+        if !attributes || InStr(attributes, "D")
+            throw TargetError("找不到 PersonalScripts 工具入口：" relativePath)
         return {Script: script, Directory: root}
     }
 
-    Launch(relativePath, arguments := [], windowed := true) {
-        target := this.ResolveScript(relativePath)
-        return this.Python.Launch(target.Script, arguments, target.Directory, windowed)
+    LaunchConsole(relativePath) => this.Launch(relativePath, [], PythonRuntime.ConsoleMode)
+
+    Launch(relativePath, arguments := [], mode := PythonRuntime.GuiMode) {
+        try target := this.ResolveScript(relativePath)
+        catch TargetError as err {
+            this.WarnMissing.Call(err.Message, PersonalScripts.ProjectUrl)
+            return 0
+        }
+        return this.Python.Launch(target.Script, arguments, target.Directory, mode)
     }
 }

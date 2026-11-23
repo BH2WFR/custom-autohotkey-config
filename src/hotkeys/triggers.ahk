@@ -47,17 +47,27 @@ class TriggerRouter {
         return false
     }
 
-    IgnoreUntilUp(key) {
+    IgnoreUntilUp(key, systemDown) {
         if !this.Held.Has(key) {
             this.Held[key] := ""
-            this.Sender.Send("{" key " up}")
+            ; 只配平启用前已交给系统的按下。
+            if systemDown
+                this.Sender.Send("{" key " up}")
+        }
+    }
+
+    DisableHeld(key) {
+        if this.Held.Has(key) {
+            this.Up(key)
+            ; 已拦截的按下只收尾，不把重复按下或松开单独交给系统。
+            this.Held[key] := ""
         }
     }
 
     Cancel() {
         if this.State.Active {
             this.State.Consume(KeyboardSender.ReadModifiers())
-            this.Sender.Release(this.State.Triggers())
+            this.Sender.ReleaseModifiers()
         }
         for target in this.Targets
             this.Sender.Send("{" target " up}")

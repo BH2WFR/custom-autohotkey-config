@@ -120,7 +120,7 @@ class ModifierRestoreTests {
                         throw Error("Physical modifier state was not established")
                     ; 与分层动作相同：释放、发送复制、恢复仍按住的修饰键。
                     loop 2 {
-                        sender.Release([])
+                        sender.ReleaseModifiers()
                         sender.Send("^c")
                         sender.RestoreModifiers(modifiers)
                         Sleep(this.Delay)

@@ -7,8 +7,18 @@ class TrayBindings {
     static Create(commands, checks, editors) {
         items := [
             this.Item("keyboard", "屏幕键盘", commands, checks, "Menu_OnScreenKeyboard.ico"),
+            this.Item("paths", "快捷路径与系统工具", commands, checks, this.ShellIcons, this.FolderIconIndex),
+            {Label: "其他工具", Items: [
+                this.Item("windowInspector", "窗口信息查看器", commands, checks),
+                "", {Heading: " 以下为 PersonalScripts 工具"},
+                this.Item("unicodeInspector", "Unicode 字符查看器", commands, checks),
+                this.Item("keyboardRemapper", "键盘映射编辑器", commands, checks),
+                this.Item("systemEventViewer", "系统事件查看器", commands, checks),
+                this.Item("imageOcr", "图片文字与公式识别", commands, checks),
+                this.Item("matrixViewer", "矩阵查看器", commands, checks),
+                this.Item("rcloneSync", "rclone-sync", commands, checks), "",
+                this.Item("runScript", "run-script 启动器", commands, checks)]},
             "",
-            this.Item("f1", "F1 作为 Layer 键", commands, checks),
             this.Item("mouse", "F2 中键 / F3 向上滚动 / F4 向下滚动", commands, checks)
         ]
         remote := []
@@ -32,6 +42,9 @@ class TrayBindings {
             ime.Push({Label: definition.Label, Items: choices})
         }
         settings := [
+            {Label: "Layer 键设置", Items: [this.Item("capslock", "CapsLock 作为 Layer 键", commands, checks),
+                this.Item("f1", "F1 作为 Layer 键", commands, checks),
+                this.Item("f24", "F24 作为 Layer 键", commands, checks)]},
             this.Item("xbuttons", "侧键映射", commands, checks),
             this.Item("reverse", "反转横向滚动", commands, checks),
             this.Item("transparency", "Win + 滚轮调节窗口透明度", commands, checks),

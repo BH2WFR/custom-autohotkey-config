@@ -11,16 +11,12 @@ class KeyboardSender {
         return result
     }
 
-    Release(triggers) {
+    ReleaseModifiers() {
         keys := ""
         if GetKeyState("LAlt") || GetKeyState("RAlt") || GetKeyState("LWin") || GetKeyState("RWin")
             keys .= KeyboardSender.MenuMask
         ; 已经抬起的键无需重复发送，避免 SendEvent 在每个冗余事件上等待。
         for key in KeyboardSender.ModifierKeys {
-            if GetKeyState(key)
-                keys .= "{" key " up}"
-        }
-        for key in triggers {
             if GetKeyState(key)
                 keys .= "{" key " up}"
         }

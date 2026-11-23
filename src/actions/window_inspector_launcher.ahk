@@ -35,8 +35,8 @@ class WindowInspectorLauncher {
         } finally DetectHiddenWindows(previous)
     }
 
-    Open(context) {
-        this.Target := context.Hwnd
+    Open(context := unset) {
+        this.Target := IsSet(context) ? context.Hwnd : 0
         if this.Starting
             return
         previous := A_DetectHiddenWindows

@@ -95,6 +95,26 @@ class AppTests {
     static Run() {
         App.Start(this.Directory, A_ScriptDir "\..")
         OnExit(ObjBindMethod(this, "Cleanup"))
+        this.Assert(this.MenuHas(A_TrayMenu, "快捷路径与系统工具") == this.MenuHas(A_TrayMenu, "屏幕键盘") + 1,
+            "Path menu follows the on-screen keyboard in the tray")
+        toolsIndex := this.MenuHas(A_TrayMenu, "其他工具")
+        this.Assert(toolsIndex == this.MenuHas(A_TrayMenu, "快捷路径与系统工具") + 1, "Tools follow the path menu")
+        toolsMenu := DllCall("GetSubMenu", "Ptr", A_TrayMenu.Handle, "Int", toolsIndex - 1, "Ptr")
+        localTools := App.Tray.Entries["windowInspector"].Menu
+        this.Assert(toolsMenu == localTools.Handle, "Local inspector stays in the tools submenu")
+        heading := this.MenuHas(localTools, " 以下为 PersonalScripts 工具")
+        this.Assert(heading == this.MenuHas(localTools, "窗口信息查看器") + 2
+            && DllCall("GetMenuState", "Ptr", toolsMenu, "UInt", heading - 2, "UInt", 0x400) & 0x800
+            && DllCall("GetMenuState", "Ptr", toolsMenu, "UInt", heading - 1, "UInt", 0x400) & 3,
+            "A separator and disabled PersonalScripts heading follow the inspector")
+        for id in ["unicodeInspector", "keyboardRemapper", "systemEventViewer", "imageOcr", "matrixViewer", "rcloneSync", "runScript"]
+            this.Assert(toolsMenu == App.Tray.Entries[id].Menu.Handle, "Tool is directly in the tools submenu: " id)
+        scripts := App.Tray.Entries["runScript"].Menu
+        syncIndex := this.MenuHas(scripts, "rclone-sync")
+        this.Assert(this.MenuHas(scripts, "run-script 启动器") == syncIndex + 2
+            && DllCall("GetMenuState", "Ptr", toolsMenu, "UInt", syncIndex, "UInt", 0x400) & 0x800,
+            "A separator groups the launcher below rclone-sync")
+        this.LayerKeySettings()
         if A_Args.Length && A_Args[1] == "--settings-only" {
             this.ReloadSettings()
             this.InputDialogs()
@@ -114,7 +134,7 @@ class AppTests {
         }
         this.Assert(InStr(A_IconFile, "MainIcon.ico"), "Normal icon loaded")
         this.Assert(A_TrayMenu.Default == "&Open", "Default tray action opens native AHK window")
-        for id in ["f1", "mouse", "config", "readConfig"]
+        for id in ["mouse", "config", "readConfig"]
             this.Assert(App.Tray.Entries[id].Menu == A_TrayMenu, "Frequent toggle stays at root: " id)
         for id in ["xbuttons", "reverse", "transparency", "autorun", "ime/chineseToggle/api", "remote/F1"]
             this.Assert(App.Tray.Entries[id].Menu != A_TrayMenu, "Settings are in submenus: " id)
@@ -131,10 +151,6 @@ class AppTests {
         this.Assert(AppSettings.GetDirectory() == EnvGet("USERPROFILE") "\.config\custom-autohotkey-config", "Project owns configuration path")
         this.Assert(PythonRuntime.Resolve("__missing_test_environment__") == "", "Unknown environment does not use base")
 
-        App.Tray.Invoke("f1")
-        data := Config.LoadJson(App.Config.Path)
-        this.Assert(data["Keyboard"]["f1Alias"] == 0 && !App.Input.Aliases["F1"], "F1 persisted and applied")
-        App.Tray.Invoke("f1")
         App.Tray.Invoke("reverse")
         App.Tray.Invoke("transparency")
         data := Config.LoadJson(App.Config.Path)
@@ -161,7 +177,7 @@ class AppTests {
         this.Assert(!App.XButtons.IsEnabled() && Config.LoadJson(App.Config.Path)["Mouse"]["xButtonMapping"] == 0, "Side-button switch applied and persisted")
         App.Tray.Invoke("pause")
         this.Assert(App.Session.Paused && !App.Input.Enabled && !App.Mouse.Enabled && !App.XButtons.Enabled && !App.MiddleDrag.Enabled, "Pause disables all adapters")
-        this.Assert(!App.Input.AliasEnabled("F6"), "Paused Caps alias passes through")
+        this.Assert(!App.Input.AliasEnabled("CapsLock"), "Paused Caps alias passes through")
         this.Assert(InStr(A_IconFile, "MainSuspend.ico"), "Paused icon loaded")
         this.Assert(!App.Touchpad.Enabled, "Pause disables touch injection")
         App.Tray.Invoke("resetHooks")
@@ -211,6 +227,152 @@ class AppTests {
                 return A_Index
         }
         return false
+    }
+
+    static LayerKeySettings() {
+        other := App.Tray.Entries["reverse"].Menu
+        submenu := DllCall("GetSubMenu", "Ptr", other.Handle, "Int", this.MenuHas(other, "Layer 键设置") - 1, "Ptr")
+        this.Assert(other.Handle == DllCall("GetSubMenu", "Ptr", A_TrayMenu.Handle, "Int",
+            this.MenuHas(A_TrayMenu, "其他设置") - 1, "Ptr"), "Layer key settings are under Other settings")
+        for key, property in CapsPolicy.ConfigurableAliases {
+            id := StrLower(key), otherKey := key == "F1" ? "F24" : "F1"
+            entry := App.Tray.Entries[id]
+            this.Assert(submenu == entry.Menu.Handle && App.Input.AliasEnabled(key), "Layer alias enabled in submenu: " key)
+            App.Tray.Invoke(id)
+            flags := DllCall("GetMenuState", "Ptr", submenu, "UInt", this.MenuHas(entry.Menu, entry.Item.Label) - 1, "UInt", 0x400)
+            this.Assert(!(flags & 8) && !App.Input.AliasEnabled(key) && App.Input.AliasEnabled(otherKey)
+                && Config.LoadJson(App.Config.Path)["Keyboard"][property] == 0, "Layer alias independently disabled and saved: " key)
+            App.Tray.Invoke(id)
+        }
+        App.Triggers.Down("CapsLock", A_ScriptHwnd)
+        for key in CapsPolicy.ConfigurableAliases
+            App.Tray.Invoke(StrLower(key))
+        this.Assert(!App.State.Active && App.Triggers.Held.Has("CapsLock"), "Disabling a held Layer keeps the release captured")
+        App.Input.EndAlias("CapsLock", A_ScriptHwnd, Map())
+        App.Tray.Invoke("readConfig")
+        for key in ["CapsLock", "F1", "F24"]
+            this.Assert(!App.Input.AliasEnabled(key), "All physical triggers disabled: " key)
+        this.NativeLayerKeys()
+        for key in CapsPolicy.ConfigurableAliases
+            App.Tray.Invoke(StrLower(key))
+        this.Assert(!App.Input.Aliases.Has("F6"), "F6 stays available to the foreground application")
+        this.CapturedLayerKeys()
+        data := Config.LoadJson(App.Config.Path)
+        data["Keyboard"]["f24Alias"] := 0
+        Config.SaveJson(data, App.Config.Path)
+        App.Tray.Invoke("readConfig")
+        this.Assert(!App.Input.AliasEnabled("F24"), "Reload disables F24")
+        data["Keyboard"].Delete("f24Alias")
+        data["Keyboard"].Delete("capsLockAlias")
+        Config.SaveJson(data, App.Config.Path)
+        App.Tray.Invoke("readConfig")
+        this.Assert(App.Input.AliasEnabled("CapsLock") && App.Input.AliasEnabled("F24") && !App.Input.Aliases.Has("F23"), "Missing settings default to CapsLock and F24")
+        App.Config.SaveAll()
+    }
+
+    static CapturedLayerKeys() {
+        window := Gui(, "Layer key capture test"), edit := window.AddEdit("w200")
+        events := [], taps := [], originalTap := App.Input.Tap, level := A_SendLevel
+        wasLocked := GetKeyState("CapsLock", "T")
+        record := ObjBindMethod(this, "RecordLayerKey", events, edit.Hwnd)
+        try {
+            window.Show()
+            edit.Focus()
+            this.Assert(WinWaitActive(window.Hwnd,, 1), "Layer key capture target has focus")
+            App.Input.Tap := ObjBindMethod(taps, "Push")
+            for msg in [0x100, 0x101, 0x104, 0x105]
+                OnMessage(msg, record)
+            SendLevel(1)
+            for key in App.Input.Aliases {
+                count := taps.Length
+                SendEvent("{Blind}{" key " down}")
+                Sleep(40)
+                this.Assert(App.State.Held.Has(key), "Hook captured the Layer press: " key)
+                SendEvent("{Blind}{" key " down}{" key " up}")
+                Sleep(40)
+                this.Assert(taps.Length == count + 1, "Repeated key-down produces one Layer tap: " key)
+                SendEvent("{Blind}{" key " down}")
+                Sleep(40)
+                SendEvent("{Blind}{2 down}")
+                Sleep(40)
+                SendEvent("{Blind}{2 up}")
+                Sleep(40)
+                this.Assert(App.State.Used, "Layer action ran while the trigger was held: " key)
+                App.Input.SetAliasEnabled(key, false)
+                SendEvent("{Blind}{" key " down}")
+                SendEvent("{Blind}{" key " up}")
+                Sleep(40)
+                this.Assert(!App.State.Held.Count && taps.Length == count + 1, "Used Layer releases without a tap: " key)
+                this.Assert(!events.Length, "Target received a captured Layer event: " key)
+                this.Assert(GetKeyState("CapsLock", "T") == wasLocked, "Layer input preserves CapsLock state")
+                this.Assert(!App.Input.AliasEnabled(key), "Disabled hook finishes the captured press: " key)
+                App.Input.SetAliasEnabled(key, true)
+            }
+        } finally {
+            for key in App.State.Held.Clone()
+                SendEvent("{Blind}{" key " up}")
+            SendLevel(level)
+            for msg in [0x100, 0x101, 0x104, 0x105]
+                OnMessage(msg, record, 0)
+            App.Input.Tap := originalTap
+            if GetKeyState("CapsLock", "T") != wasLocked
+                SetCapsLockState(wasLocked)
+            window.Destroy()
+        }
+    }
+
+    static NativeLayerKeys() {
+        window := Gui(, "Layer input test"), edit := window.AddEdit("w200")
+        window.Show()
+        events := [], tap := App.Input.Tap, taps := []
+        record := ObjBindMethod(this, "RecordLayerKey", events, edit.Hwnd)
+        previousLevel := A_SendLevel, wasLocked := GetKeyState("CapsLock", "T")
+        try {
+            App.Input.Tap := ObjBindMethod(taps, "Push")
+            edit.Focus()
+            this.Assert(WinWaitActive(window.Hwnd,, 1), "Isolated input target has focus")
+            OnMessage(0x100, record), OnMessage(0x101, record)
+            ; 有正式实例时让原生事件避开它的 I0 钩子；独立运行时同时经过测试实例的钩子。
+            SplitPath(A_ScriptDir,, &root)
+            previousHidden := A_DetectHiddenWindows
+            DetectHiddenWindows(true)
+            try resident := WinExist(root "\main.ahk ahk_class AutoHotkey")
+            finally DetectHiddenWindows(previousHidden)
+            SendLevel(resident ? 0 : 1)
+            for key in App.Input.Aliases {
+                events.Length := 0
+                SendEvent("{Blind}{" key " down}")
+                Sleep(40)
+                this.Assert(!App.State.Active, "Disabled key uses native input: " key)
+                if key == "CapsLock"
+                    this.Assert(GetKeyState(key, "T") != wasLocked, "Windows handles native CapsLock toggle")
+                SendEvent("{Blind}{" key " up}")
+                Sleep(40)
+                this.Assert(events.Length == 2 && events[1].Key == key && events[1].Msg == 0x100
+                    && events[2].Key == key && events[2].Msg == 0x101 && !taps.Length,
+                    "Native window receives disabled key down and up exactly once: " key)
+            }
+            App.VirtualKeyboard.Handle(Map("command", "begin", "modifiers", []), window.Hwnd)
+            App.VirtualKeyboard.Handle(Map("command", "key", "key", "2", "modifiers", []), window.Hwnd)
+            this.Assert(App.VirtualKeyboard.Used && !App.State.Active, "On-screen keyboard can still dispatch a Layer command")
+        } finally {
+            App.VirtualKeyboard.ResetInput()
+            OnMessage(0x100, record, 0), OnMessage(0x101, record, 0)
+            if GetKeyState("CapsLock")
+                SendEvent("{Blind}{CapsLock up}")
+            SetCapsLockState(wasLocked)
+            SendLevel(previousLevel)
+            App.Input.Tap := tap
+            window.Destroy()
+        }
+    }
+
+    static RecordLayerKey(events, edit, vk, flags, msg, hwnd) {
+        if hwnd == edit {
+            key := GetKeyName(Format("vk{:02X}", vk))
+            if App.Input.Aliases.Has(key)
+                events.Push({Key: key, Msg: msg})
+        }
     }
 
     static InputDialogs() {

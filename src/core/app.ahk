@@ -32,7 +32,8 @@ class App {
         this.Anki := AnkiStyles(this.Sender, this.Tooltip)
         this.MouseSender := MouseSender(this.Sender)
         this.Clipboard := ClipboardService(this.Sender)
-        this.PersonalTools := PersonalScripts(this.Python, this.PersonalScriptsSettings, ObjBindMethod(this.Config, "SaveAll"))
+        this.PersonalTools := PersonalScripts(this.Python, this.PersonalScriptsSettings, ObjBindMethod(this.Config, "SaveAll"),
+            ObjBindMethod(ApplicationActions, "OfferPersonalScriptsInstall"))
         this.UnicodeInspector := UnicodeInspectorActions(this.PersonalTools, this.Clipboard)
         this.Typer := TextTyper(this.Sender, this.ImeApi)
         this.Editor := TextEditor(this.Sender, this.Clipboard)
@@ -53,7 +54,7 @@ class App {
         this.ScreenKeyboard.Connect(this.VirtualKeyboard)
         this.Triggers := TriggerRouter(this.State, this.Sender, ObjBindMethod(this.CapsPolicy, "Resolve"))
         this.Input := HotkeyInput(this.State, this.Registry, this.Dispatcher, this.Triggers,
-            CapsPolicy.Aliases(this.Settings.f1Alias), ObjBindMethod(this.Ime, "ToggleLanguage"))
+            CapsPolicy.Aliases(this.Settings), ObjBindMethod(this.Ime, "ToggleLanguage"))
         this.Paths := PopupMenuView(PathMenuBindings.Create(root), ObjBindMethod(this.PathActions, "Open"))
         HotkeyBindings.Register(this.Registry, this.Diagnostics, this.Ime, this.ScreenKeyboard, this.Anki, this.Touchpad, this.Wheel,
             this.Sender, this.ClipboardActions, this.TextActions, this.MouseSender, this.Pointer, this.Windows, this.Keys, this.Paths, this.UnicodeInspector, this.WindowInspector)
@@ -78,7 +79,15 @@ class App {
     static CreateTray() {
         commands := Map(
             "keyboard", ObjBindMethod(this.ScreenKeyboard, "Open"),
-            "f1", ObjBindMethod(this.SettingActions, "Toggle", this.Settings, "f1Alias", ObjBindMethod(this.Input, "SetAliasEnabled", "F1")),
+            "paths", ObjBindMethod(this.Paths, "Show"),
+            "windowInspector", ObjBindMethod(this.WindowInspector, "Open"),
+            "unicodeInspector", ObjBindMethod(this.UnicodeInspector, "Open"),
+            "keyboardRemapper", ObjBindMethod(this.PersonalTools, "Launch", "tools\windows\keyboard-remapper.py"),
+            "systemEventViewer", ObjBindMethod(this.PersonalTools, "Launch", "tools\others\system-event-viewer.py"),
+            "imageOcr", ObjBindMethod(this.PersonalTools, "Launch", "tools\document-processing\image-to-text-and-formula.py"),
+            "matrixViewer", ObjBindMethod(this.PersonalTools, "Launch", "tools\research\matrix-viewer.py"),
+            "rcloneSync", ObjBindMethod(this.PersonalTools, "LaunchConsole", "tools\network\rclone-sync.py"),
+            "runScript", ObjBindMethod(this.PersonalTools, "LaunchConsole", "run-script.py"),
             "mouse", ObjBindMethod(this.Mouse, "ToggleFunctionKeys"),
             "xbuttons", ObjBindMethod(this.SettingActions, "Toggle", this.MouseSettings, "xButtonMapping", ObjBindMethod(this.XButtons, "SetMappingEnabled")),
             "reverse", ObjBindMethod(this.SettingActions, "Toggle", this.MouseSettings, "reverseHorizontal"),
@@ -90,13 +99,17 @@ class App {
             "pause", ObjBindMethod(this.Session, "Toggle"),
             "resetHooks", ObjBindMethod(this.Session, "ResetHooks", ObjBindMethod(NativeHotkeys, "ResetHooks")))
         checks := Map(
-            "f1", ObjBindMethod(SettingsActions, "Read", this.Settings, "f1Alias"),
             "mouse", ObjBindMethod(this.Mouse, "FunctionKeysEnabled"),
             "xbuttons", ObjBindMethod(SettingsActions, "Read", this.MouseSettings, "xButtonMapping"),
             "reverse", ObjBindMethod(SettingsActions, "Read", this.MouseSettings, "reverseHorizontal"),
             "transparency", ObjBindMethod(SettingsActions, "Read", this.MouseSettings, "winWheelTransparency"),
             "autorun", ObjBindMethod(this.Autorun, "IsEnabled"),
             "pause", ObjBindMethod(this.Session, "IsPaused"))
+        for key, property in CapsPolicy.ConfigurableAliases {
+            id := StrLower(key)
+            commands[id] := ObjBindMethod(this.SettingActions, "Toggle", this.Settings, property, ObjBindMethod(this, "ApplyLayerKeys"))
+            checks[id] := ObjBindMethod(SettingsActions, "Read", this.Settings, property)
+        }
         for mode in ["layer", "CapsLock", "F1", "F24"] {
             commands["remote/" mode] := ObjBindMethod(this.SettingActions, "Set", this.RemoteSettings, "capsMode", mode)
             checks["remote/" mode] := ObjBindMethod(SettingsActions, "Equals", this.RemoteSettings, "capsMode", mode)
@@ -119,9 +132,14 @@ class App {
         this.Tray := TrayView(this.Root, TrayBindings.Create(commands, checks, editors), checks["pause"])
     }
 
+    static ApplyLayerKeys(*) {
+        for key, enabled in CapsPolicy.Aliases(this.Settings)
+            this.Input.SetAliasEnabled(key, enabled)
+    }
+
     static ApplySettings() {
         this.WindowInspector.SyncSettings()
-        this.Input.SetAliasEnabled("F1", this.Settings.f1Alias)
+        this.ApplyLayerKeys()
         this.XButtons.SetMappingEnabled(this.MouseSettings.xButtonMapping)
         if this.Python.Environment != this.PythonSettings.condaEnvironment
             this.Python.SetEnvironment(this.PythonSettings.condaEnvironment)

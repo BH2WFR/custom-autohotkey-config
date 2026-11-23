@@ -21,6 +21,11 @@ class TrayView {
                 targetMenu.AddStandard()
                 continue
             }
+            if item.HasOwnProp("Heading") {
+                targetMenu.Add(item.Heading, (*) => 0)
+                targetMenu.Disable(item.Heading)
+                continue
+            }
             if item.HasOwnProp("Items") {
                 child := Menu()
                 this.Build(child, item.Items)

@@ -31,6 +31,8 @@ class WindowInspectorWorker extends WindowInspectorActions {
     }
 
     Receive(value, host, message, hwnd) {
+        ; 托盘和热键的连续打开请求按投递顺序处理。
+        Critical("On")
         if host != this.Host || hwnd != this.Endpoint.Hwnd
             return
         switch message {

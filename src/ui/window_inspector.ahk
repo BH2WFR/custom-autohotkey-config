@@ -133,7 +133,7 @@ class WindowInspectorView {
         }
     }
 
-    Show() {
+    Show(focusRefresh := false) {
         this.Gui.Opt(this.Topmost.Value ? "+AlwaysOnTop" : "-AlwaysOnTop")
         previous := GuiDpi.Enter()
         try this.Gui.Show(this.Shown ? "" : "w" this.Dpi.Px(WindowInspectorView.Width) " h" this.Dpi.Px(WindowInspectorView.Height))
@@ -142,6 +142,8 @@ class WindowInspectorView {
         this.Dpi.FitWindow()
         WinMoveTop(this.Handle)
         WinActivate(this.Handle)
+        if focusRefresh
+            this.ListButton.Focus()
     }
 
     SetTopmost(enabled) {

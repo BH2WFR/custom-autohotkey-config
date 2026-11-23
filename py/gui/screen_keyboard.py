@@ -136,6 +136,7 @@ class ScreenKeyboard:
         self.numpad_buttons = {}
         self.hovered = set()
         self.button_colors = {}
+        self.layout_signature = None
         self.status = tk.Label(self.window, anchor="w", background=self.BACKGROUND,
                                foreground="#505760", font=self.font(self.UI_FONT, 8))
         self.toolbar = []
@@ -143,6 +144,7 @@ class ScreenKeyboard:
         for name, label, action in [("extended", "更多", self.toggle_extended),
                                     ("numpad", "数字", self.toggle_numpad),
                                     ("reset", "释放", self.reset),
+                                    ("redraw", "重绘", self.redraw),
                                     ("size", "复位", self.reset_size)]:
             button = tk.Label(self.window, text=label, background=self.BACKGROUND,
                                font=self.font(self.UI_FONT, 8), cursor="hand2")
@@ -165,7 +167,8 @@ class ScreenKeyboard:
         self.window.bind("<ButtonRelease-1>", self.release_pointer)
         self.window.bind("<Unmap>", self.unmapped)
         self.window.protocol("WM_DELETE_WINDOW", self.close)
-        self.native = NonactivatingWindow(self.window, lambda: self.perform(self.reset), self.dpi_changed)
+        self.native = NonactivatingWindow(self.window, lambda: self.perform(self.reset), self.dpi_changed,
+                                          self.finish_resize)
         self.client = KeyboardClient(host, self.native.hwnd)
         self.layout()
         self.refresh()
@@ -340,12 +343,31 @@ class ScreenKeyboard:
                             self.px(MINIMUM_SIZE[1] + (self.EXTRA_ROW_HEIGHT if self.expanded else 0)))
 
     def dpi_changed(self, dpi):
+        if self.resize_in_progress():
+            return
         self.scale = dpi / BASE_DPI
         self.set_minimum_size()
         self.status.configure(font=self.font(self.UI_FONT, 8))
         for button in self.toolbar:
             button.configure(font=self.font(self.UI_FONT, 8))
         self.layout()
+
+    def resize_in_progress(self):
+        return hasattr(self, "native") and self.native.is_resizing
+
+    def finish_resize(self):
+        if self.scale != self.native.dpi / BASE_DPI:
+            self.dpi_changed(self.native.dpi)
+        else:
+            self.layout()
+        self.refresh()
+
+    def redraw(self):
+        self.layout_signature = None
+        self.dpi_changed(self.native.dpi)
+        self.lock_states = LockKeyState.read()
+        self.refresh()
+        self.native.redraw()
 
     def stop_lock_updates(self):
         if self.lock_timer is not None:
@@ -362,6 +384,8 @@ class ScreenKeyboard:
             self.lock_timer = self.window.after(self.LOCK_STATE_INTERVAL, self.update_lock_states)
 
     def refresh(self):
+        if self.resize_in_progress():
+            return
         for name, enabled in [("extended", self.expanded), ("numpad", self.numpad_visible)]:
             self.paint_button(self.toolbar_buttons[name], self.TOGGLE_BACKGROUND if enabled else self.BACKGROUND,
                               "white" if enabled else "#202124")
@@ -390,7 +414,13 @@ class ScreenKeyboard:
     def layout(self, event=None):
         if event is not None and event.widget is not self.window:
             return
+        if self.resize_in_progress():
+            return
         width, height = self.window.winfo_width(), self.window.winfo_height()
+        signature = (width, height, self.scale, self.expanded, self.numpad_visible)
+        if signature == self.layout_signature:
+            return
+        self.layout_signature = signature
         margin, gap, header = self.px(self.MARGIN), self.px(self.GAP), self.px(25)
         extra = self.px(self.EXTRA_ROW_HEIGHT) if self.expanded else 0
         unit = (width - margin * 2 + gap) / (ROW_UNITS + self.NUMPAD_COLUMNS if self.numpad_visible else ROW_UNITS)

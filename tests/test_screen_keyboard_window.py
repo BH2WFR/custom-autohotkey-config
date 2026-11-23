@@ -29,7 +29,7 @@ class WindowTest:
         keyboard = self.keyboard
         try:
             assert (keyboard.window.winfo_width(), keyboard.window.winfo_height()) == tuple(keyboard.px(v) for v in DEFAULT_SIZE)
-            assert len(keyboard.toolbar) == 4
+            assert len(keyboard.toolbar) == 5
             assert not U.GetWindowLongPtrW(keyboard.native.hwnd, GWL_STYLE) & WS_MINIMIZEBOX
             assert not hasattr(keyboard, "minimize")
             other_hwnd = U.GetAncestor(self.other.winfo_id(), 2)
@@ -59,6 +59,7 @@ class WindowTest:
             keyboard.reset_size()
             keyboard.window.update_idletasks()
             assert not keyboard.expanded and not keyboard.numpad_visible
+            keyboard.redraw()
             assert (keyboard.window.winfo_width(), keyboard.window.winfo_height()) == tuple(keyboard.px(v) for v in DEFAULT_SIZE)
             print("PASS: independent panel toggles, default/reset size, no minimize button, topmost without changing focus")
         except Exception:

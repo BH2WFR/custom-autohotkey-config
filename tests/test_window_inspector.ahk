@@ -199,9 +199,15 @@ class WindowInspectorTests {
         windows := WindowActions(tip, settings, ObjBindMethod(launcher, "NotifyStyleChanged"))
         context := {Hwnd: target.Hwnd}
         try {
-            launcher.Open(context)
+            launcher.Open()
             viewer := WinWait(WindowInspectorView.Title " ahk_pid " launcher.Pid,, 3)
             this.Assert(viewer, "Independent inspector opened")
+            this.Assert(!ControlGetEnabled("激活窗口", viewer), "Tray launch opens without a target")
+            this.AssertTrayFocus(viewer)
+            ControlFocus("ComboBox1", viewer)
+            launcher.Open()
+            this.AssertTrayFocus(viewer)
+            launcher.Open(context)
             deadline := A_TickCount + 2000
             while !InStr(ListViewGetContent(, "SysListView321", viewer), "文件修改时间") && A_TickCount < deadline
                 Sleep(20)
@@ -238,10 +244,26 @@ class WindowInspectorTests {
             }
             ControlClick("刷新信息", viewer)
             this.Assert(this.WaitForTooltip(launcher.Pid, "窗口信息已刷新"), "Refresh button displays the native result tooltip")
+            launcher.Open()
+            deadline := A_TickCount + 2000
+            while ControlGetEnabled("激活窗口", viewer) && A_TickCount < deadline
+                Sleep(20)
+            this.Assert(!ControlGetEnabled("激活窗口", viewer) && ListViewGetContent(, "SysListView321", viewer) == "",
+                "Tray launch clears the previous target in the existing inspector")
+            this.AssertTrayFocus(viewer)
         } finally {
             windows.Stop()
             launcher.Close()
         }
+    }
+
+    static AssertTrayFocus(viewer) {
+        button := ControlGetHwnd("刷新列表", viewer)
+        deadline := A_TickCount + 2000
+        while ControlGetFocus(viewer) != button && A_TickCount < deadline
+            Sleep(20)
+        this.Assert(ControlGetFocus(viewer) == button && ControlGetText("ComboBox1", viewer) == "",
+            "Tray launch leaves the empty window selector unfocused so its cue is visible")
     }
 
     static WaitForTooltip(pid, expected) {
