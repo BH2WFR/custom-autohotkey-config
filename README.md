@@ -19,7 +19,7 @@ macOS 姊妹项目：[custom-karabiner-config](https://github.com/BH2WFR/custom-
 | Caps+Alt+Shift+2 | 显示第 4 层信息。 |
 | Caps+4 | 将选中文本包在 `${` 和 `}` 中。 |
 | Caps+6 / Caps+Shift+6 | 选中文本转小写 / 大写。 |
-| Caps+7 | 用 PersonalScripts 的 Unicode 字符查看器分析选中文本，显示码点、编码及字符信息；无选区时打开空白查看器。 |
+| Caps+7 | 复制选中文本并用 Unicode 字符查看器的 `--clip` 读取，复制的内容保留在剪贴板中。未复制到文本时打开空白查看器。 |
 | Caps+Shift+7 | 选中文本每个单词的首字母大写，其余字母小写。 |
 | Caps+- / Caps+= | 在鼠标位置模拟双指缩小 / 放大手势，距离随显示器缩放调整，并显示缩放方向提示。 |
 | Caps+Shift+- / Caps+Shift+= | 向左 / 向右横向滚动。 |

@@ -24,12 +24,16 @@ class ClipboardService {
         }
     }
 
-    _Capture(keys, line) {
+    CopySelection(keys, line := false) {
         A_Clipboard := ""
         if line
             this.Sender.Send(ClipboardService.SelectLineKeys)
         this.Sender.Send(keys)
-        success := ClipWait(ClipboardService.CopyTimeout)
+        return ClipWait(ClipboardService.CopyTimeout)
+    }
+
+    _Capture(keys, line) {
+        success := this.CopySelection(keys, line)
         return {Success: success, Text: success ? A_Clipboard : ""}
     }
 

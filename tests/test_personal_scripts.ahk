@@ -21,9 +21,8 @@ class PersonalScriptsTests {
         }
     }
     class Clipboard {
-        Success := true
-        Text := '--clip 中文 "quoted"`nsecond line\'
-        Read(keys) => {Success: this.Success, Text: this.Text}
+        Copies := 0
+        CopySelection(keys) => ++this.Copies
     }
     static Assert(value, message) {
         this.Count++
@@ -107,14 +106,11 @@ class PersonalScriptsTests {
             this.Assert(Config.LoadJson(manager.Path)["PersonalScripts"]["launcherPath"] == pyLauncher, "Replacement path persisted")
             this.Assert(inspector.Open({Hwnd: 0}) == 123, "Launch returns process ID")
             this.Assert(python.Last.Script == script && python.Last.Directory == directory, "Launch target directly, not launcher")
-            this.Assert(python.Last.Arguments.Length == 2 && python.Last.Arguments[1] == "--"
-                && python.Last.Arguments[2] == clipboard.Text, "Pass selected text literally, including leading options and Unicode")
+            this.Assert(clipboard.Copies == 1 && python.Last.Arguments.Length == 1 && python.Last.Arguments[1] == "--clip",
+                "Hotkey copies the selection and passes only the clipboard flag")
             inspector.Open()
-            this.Assert(python.Last.Arguments.Length == 1 && python.Last.Arguments[1] == "--clip",
-                "Tray launch asks the viewer to read clipboard text even when text is selected")
-            clipboard.Success := false
-            inspector.Open({Hwnd: 0})
-            this.Assert(!python.Last.Arguments.Length, "No selection opens empty inspector")
+            this.Assert(clipboard.Copies == 1 && python.Last.Arguments.Length == 1 && python.Last.Arguments[1] == "--clip",
+                "Tray uses the existing clipboard without copying the selection")
             FileDelete(script)
             this.Missing(ObjBindMethod(actions, "Launch", UnicodeInspectorActions.Script), UnicodeInspectorActions.Script)
             FileDelete(pyLauncher)
