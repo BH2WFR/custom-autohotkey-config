@@ -45,7 +45,7 @@
 #Include src/actions/middle_drag.ahk
 #Include src/actions/xbuttons.ahk
 #Include src/actions/window.ahk
-#Include src/actions/window_inspector_launcher.ahk
+#Include src/actions/window_inspector.ahk
 #Include src/actions/keyboard.ahk
 #Include src/actions/paths.ahk
 #Include src/actions/clipboard.ahk

@@ -43,9 +43,7 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 - `src/hotkeys/`：原生钩子、层状态、注册容器、分发和按键路由机制；别名和策略由外部注入。
 - `src/rules/`：可扩展的热键声明、窗口分类、Layer 策略和托盘布局；`src/actions/`：具体功能与其运行状态；`src/apps/`：应用专用功能。
 - `src/ui/`：托盘等界面视图，只接收命令和状态查询，不直接访问 App、配置或功能内部对象。
-- Caps+W 使用原生 AHK GUI：`lib/window_info.ahk`、`process.ahk` 查询系统，`actions/window_inspector.ahk` 管理目标及单实例，`ui/window_inspector.ahk` 渲染；选窗或刷新时立即读取进程详情，控件仍按按钮读取，未读取时列表显示提示，无轮询定时器。
-- `ui/window_picker.ahk` 通过鼠标捕获实现拖拽选窗和粗框高亮，按物理坐标及目标显示器缩放绘制，释放、取消或关闭时清理捕获与边框，保留独立弹窗作为目标。
-- 查看器由热键宿主按需启动独立 AHK 进程，使用原生 API 读取进程详情；组合框按展开高度缩放，“激活窗口”按需恢复并置前描边，3 秒后切回；“显示边界”仅描边 3 秒，目标最小化或异常时弹出警告。
+- `actions/window_inspector.ahk` 通过 PersonalScripts 启动 `tools/others/window-inspector.py`：Caps+W 传入触发时的 HWND 和所属 PID，托盘传入 `--startup-window 0 0` 打开空白查看器。
 - `src/actions/xbuttons.ahk` 管理侧键生命周期，`src/apps/xbuttons.ahk` 按窗口类别分流，CAJ/PowerISO 模块持有各自布局；`src/lib/window_geometry.ahk` 和 `window_automation.ahk` 仅负责缩放换算、控件点击与点击序列。
 - `py/text_actions.py` 负责复杂文本处理，`py/gui/` 存放本项目的 tkinter 界面，`py/utils/` 存放公共辅助模块。
 - AHK 管理热键、剪贴板和输入分发，`src/lib/python.ahk` 定位解释器并启动 Python 任务。
@@ -109,8 +107,8 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 - 托盘顶层保留 F2/F3/F4 映射、打开配置目录及其下方的重新读取配置，侧键映射、反转横向滚动等收进“其他设置”；配置目录上方加分隔线，配置目录、重新读取及其他设置使用系统图标；保留 AHK 原生菜单和双击 Open。
 - JSON 在启动时读取、设置修改和退出时保存；托盘“重新读取配置”即时应用并刷新勾选，保留暂停及 F2/F3/F4 临时状态，读取失败保留原有运行配置。
 - JSON 分组为 `Keyboard`、`Mouse`、`Window`、`Python`、`PersonalScripts`、`RemoteDesktop`、`IME`；`Python.condaEnvironment` 默认 `base`，F2/F3/F4 模式和暂停状态不持久化。
-- Caps+B 和查看器共用 `Window.passThroughOpacityPercent`（整数 0–100，默认 59），重新读取配置后在下次开启穿透时生效。
-- 外部工具平铺在托盘「其他工具」中，窗口信息查看器下方保留分隔线和灰色标题「以下为 PersonalScripts 工具」。入口依次按键盘与文字、系统、文件与同步、其他工具排列，组间用横线分隔，run-script 启动器在末尾单列。`PersonalScripts.launcherPath` 为空或失效时依次从 PATH 查找 `run-script.ps1`、`run-script.py` 并保存，仅用其目录定位脚本。热键和托盘共用启动逻辑，入口或目标脚本缺失时弹出警告并提供 GitHub 安装链接。
+- Caps+B 使用 `Window.passThroughOpacityPercent`（整数 0–100，默认 59），重新读取配置后在下次开启穿透时生效。
+- 外部工具平铺在托盘「其他工具」的灰色标题「以下为 PersonalScripts 工具」下方。入口依次按键盘与文字、系统、文件与同步、其他工具排列，组间用横线分隔，窗口信息查看器紧跟系统事件查看器，run-script 启动器在末尾单列。`PersonalScripts.launcherPath` 为空或失效时依次从 PATH 查找 `run-script.ps1`、`run-script.py` 并保存，仅用其目录定位脚本。热键和托盘共用启动逻辑，入口或目标脚本缺失时弹出警告并提供 GitHub 安装链接。
 - 托盘中的 `rclone-sync` 和 `run-script 启动器` 使用项目配置的 Python，优先在 Windows Terminal 新窗口中无参数启动，无法启动 Terminal 时使用独立控制台，两者均启用 ANSI 输出。启动器单列在末尾的分隔线下方。
 - `Mouse.xButtonMapping` 默认开启，由托盘“侧键映射”切换并保存；全局暂停独立于此设置。
 - `Mouse.pointerFastStep` 默认 `10`，`Mouse.wheelMultiplier` 默认 `5`，均为正整数；Caps+Shift+滚轮每次横向滚动一格。

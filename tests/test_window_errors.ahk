@@ -1,12 +1,8 @@
 ﻿#Requires AutoHotkey v2.0
 #Include ../src/lib/window.ahk
 #Include ../src/lib/window_geometry.ahk
-#Include ../src/lib/window_info.ahk
-#Include ../src/lib/process.ahk
-#Include ../src/lib/shell.ahk
 #Include ../src/rules/windows.ahk
 #Include ../src/actions/window.ahk
-#Include ../src/actions/window_inspector.ahk
 #Include ../src/utils/tooltip.ahk
 
 class WindowErrorTests {
@@ -28,15 +24,6 @@ class WindowErrorTests {
         Fail() {
             throw OSError(5)
         }
-    }
-    class InspectorView {
-        Handle := 0
-        SelectedEntry := 0
-        ClearTarget(*) => 0
-        __New(commands) {
-        }
-        SetStatus(text) => this.Status := text
-        Show() => 0
     }
     static Assert(value, message) {
         this.Count++
@@ -85,12 +72,6 @@ class WindowErrorTests {
             failure.TargetHwnd := closed
             this.ExpectError(ObjBindMethod(failure, "WheelTransparency", -20), tip, "Wheel transparency target disappeared")
             this.ExpectError(ObjBindMethod(failure, "ShowDesktop"), tip, "System API error")
-
-            inspector := WindowInspectorActions(this.InspectorView, actions, tip)
-            before := tip.Messages.Length
-            inspector.Open({Hwnd: closed})
-            this.Assert(tip.Messages.Length == before + 1 && inspector.View.Status != "", "Inspector opening invalid target reports tooltip and status")
-            this.ExpectError(ObjBindMethod(inspector, "Invoke", "Center"), tip, "Inspector operation without target")
 
             nativeTip := TooltipPresenter()
             try {

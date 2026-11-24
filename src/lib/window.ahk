@@ -5,7 +5,6 @@ class WindowTools {
     static TransparentStyle := 0x20
     static LayeredStyle := 0x80000
     static TopmostStyle := 0x8
-    static MinimizeBoxStyle := 0x20000
     static Opaque := 255
     static OpacityLevels := [51, 102, 153, 204, 255]
 
@@ -77,12 +76,6 @@ class WindowTools {
         }
     }
     static ShowDesktop() => WinMinimizeAll()
-    static MinimizeOrHide(hwnd) {
-        if WinGetStyle(hwnd) & this.MinimizeBoxStyle
-            WinMinimize(hwnd)
-        else
-            WinHide(hwnd)
-    }
     static MinimizeOthers(hwnd) {
         this.RequireWindow(hwnd)
         WinMinimizeAll()

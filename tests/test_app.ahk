@@ -41,7 +41,7 @@
 #Include ../src/actions/middle_drag.ahk
 #Include ../src/actions/xbuttons.ahk
 #Include ../src/actions/window.ahk
-#Include ../src/actions/window_inspector_launcher.ahk
+#Include ../src/actions/window_inspector.ahk
 #Include ../src/actions/keyboard.ahk
 #Include ../src/actions/paths.ahk
 #Include ../src/actions/clipboard.ahk
@@ -105,13 +105,11 @@ class AppTests {
         this.Assert(toolsIndex == this.MenuHas(A_TrayMenu, "快捷路径与系统工具") + 1, "Tools follow the path menu")
         toolsMenu := DllCall("GetSubMenu", "Ptr", A_TrayMenu.Handle, "Int", toolsIndex - 1, "Ptr")
         localTools := App.Tray.Entries["windowInspector"].Menu
-        this.Assert(toolsMenu == localTools.Handle, "Local inspector stays in the tools submenu")
+        this.Assert(toolsMenu == localTools.Handle, "Window inspector is in the tools submenu")
         heading := this.MenuHas(localTools, " 以下为 PersonalScripts 工具")
-        this.Assert(heading == this.MenuHas(localTools, "窗口信息查看器") + 2
-            && DllCall("GetMenuState", "Ptr", toolsMenu, "UInt", heading - 2, "UInt", 0x400) & 0x800
-            && DllCall("GetMenuState", "Ptr", toolsMenu, "UInt", heading - 1, "UInt", 0x400) & 3,
-            "A separator and disabled PersonalScripts heading follow the inspector")
-        for id in ["autoTyper", "textProcessor", "unicodeInspector", "keyboardRemapper", "", "systemEventViewer", "",
+        this.Assert(heading == 1 && DllCall("GetMenuState", "Ptr", toolsMenu, "UInt", 0, "UInt", 0x400) & 3,
+            "The disabled PersonalScripts heading opens the tools submenu")
+        for id in ["autoTyper", "textProcessor", "unicodeInspector", "keyboardRemapper", "", "systemEventViewer", "windowInspector", "",
                 "rcloneSync", "", "imageOcr", "matrixViewer", "", "runScript"] {
             position := heading + A_Index
             if id == "" {
@@ -126,6 +124,13 @@ class AppTests {
         if A_Args.Length && A_Args[1] == "--tools-only" {
             this.CheckToolLaunch("autoTyper", "Auto Typer")
             this.CheckToolLaunch("textProcessor", "Text Processor")
+            this.CheckToolLaunch("windowInspector", "Window Inspector")
+            target := Gui(, "Caps+W inspection target")
+            try {
+                target.Show("w300 h100")
+                this.Assert(WinWaitActive(target.Hwnd,, 2), "Caps+W target has focus")
+                this.CheckToolLaunch("windowInspector", "Window Inspector", target.Hwnd)
+            } finally target.Destroy()
             App.Stop()
             FileAppend("PASS: " this.Count " native tray tool assertions" Chr(10), "*", "UTF-8")
             return
@@ -230,7 +235,7 @@ class AppTests {
         FileAppend("PASS: " this.Count " app assertions" Chr(10), "*", "UTF-8")
     }
 
-    static CheckToolLaunch(id, title) {
+    static CheckToolLaunch(id, title, hotkeyTarget := 0) {
         entry := App.Tray.Entries[id]
         position := this.MenuHas(entry.Menu, entry.Item.Label) - 1
         command := DllCall("GetMenuItemID", "Ptr", entry.Menu.Handle, "Int", position, "UInt")
@@ -238,13 +243,32 @@ class AppTests {
         existing := Map()
         for hwnd in WinGetList(query)
             existing[hwnd] := true
-        PostMessage(0x111, command, 0,, A_ScriptHwnd) ; WM_COMMAND from the native menu
+        if hotkeyTarget {
+            previousLevel := A_SendLevel
+            SendLevel(1)
+            try {
+                SendEvent("{Blind}{F24 down}")
+                Sleep(50)
+                SendEvent("{Blind}{w down}{w up}")
+            } finally {
+                SendEvent("{Blind}{F24 up}")
+                SendLevel(previousLevel)
+            }
+        } else
+            PostMessage(0x111, command, 0,, A_ScriptHwnd) ; WM_COMMAND from the native menu
         deadline := A_TickCount + 10000
         loop {
             for hwnd in WinGetList(query) {
                 if existing.Has(hwnd) || WinGetTitle(hwnd) != title
                     continue
-                WinClose(hwnd)
+                try {
+                    if id == "windowInspector" {
+                        process := ComObjGet("winmgmts:Win32_Process.Handle='" WinGetPID(hwnd) "'")
+                        targetPid := hotkeyTarget ? WinGetPID(hotkeyTarget) : 0
+                        this.Assert(RegExMatch(StrReplace(process.CommandLine, '"'), "--startup-window " hotkeyTarget " " targetPid "$"),
+                            "Inspector launched with the expected HWND and PID")
+                    }
+                } finally WinClose(hwnd)
                 this.Assert(WinWaitClose(hwnd,, 3), "Opened and closed " title)
                 return
             }

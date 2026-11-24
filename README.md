@@ -26,7 +26,7 @@ macOS 姊妹项目：[custom-karabiner-config](https://github.com/BH2WFR/custom-
 | Caps+Backspace / Caps+Shift+Backspace | 删除二字词第一字 / 删除当前行。 |
 | Caps+Tab / Caps+Shift+Tab | 当前行或多行选区缩进 / 取消缩进，使用四个空格并识别制表符。 |
 | Caps+Q | 发送 Esc，穿透修饰键。 |
-| Caps+W | 拖动左侧小圆饼或从列表选窗，可查看窗口、控件和进程信息，调整置顶、穿透和不透明度，最小化窗口或隐藏弹窗。「激活窗口」会按需恢复并置前，沿窗口内侧描边，3 秒后切回查看器。 |
+| Caps+W | 用 PersonalScripts 窗口信息查看器查看当前窗口、控件和所属进程。可拖动选窗器或从列表选择其他窗口。 |
 | Caps+E | 打开常用目录、系统设置和系统工具菜单。托盘「屏幕键盘」下方的「快捷路径与系统工具」也可打开同一菜单。 |
 | Caps+R / Caps+Shift+R | 当前窗口居中 / 重置为 1000×800 后居中，按所在显示器缩放调整。 |
 | Caps+T | 切换当前窗口置顶状态，并显示 Tooltip 提示。 |
@@ -42,7 +42,7 @@ macOS 姊妹项目：[custom-karabiner-config](https://github.com/BH2WFR/custom-
 | Caps+Z | 打字粘贴；临时关闭输入法的中文等输入模式，结束后恢复原状态。ASCII 发送键盘扫描码，非 ASCII 发送文本。 |
 | Caps+X/C / Caps+Shift+X/C | 剪切/复制选区，Shift 处理当前整行。 |
 | Caps+V / Caps+Shift+V | 纯文本粘贴 / 高级粘贴。高级粘贴处理 PDF 折行、网址域名和路径，路径直接转为正斜杠。 |
-| Caps+B | 开启穿透时置顶窗口，完全不透明的窗口使用 `settings.json` 中的 `Window.passThroughOpacityPercent`（整数 0–100，默认 59），已有半透明值则保留。再按一次取消置顶并恢复 100% 不透明度，查看器的「窗口穿透」共用此设置。 |
+| Caps+B | 开启穿透时置顶窗口，完全不透明的窗口使用 `settings.json` 中的 `Window.passThroughOpacityPercent`（整数 0–100，默认 59），已有半透明值则保留。再按一次取消置顶并恢复 100% 不透明度。 |
 | Caps+Shift+B | 不透明度按 20%、40%、60%、80%、100% 循环；其他值恢复为 100%。 |
 | Caps+逗号 / Caps+Shift+逗号 | 行末添加逗号 / 添加反斜杠并换行。 |
 | Caps+. | 中文切换中英文标点，韩文发送汉字键，日文切换平假名。 |
@@ -122,7 +122,7 @@ Shift+侧键在文件管理器及压缩工具中返回上级目录，在其他�
 
 中键拖动：图片查看器、聊天软件的看图窗口及 Freeplane 中，按住中键模拟左键拖动；Photoshop、Illustrator、InDesign、Acrobat 等 Adobe 应用中，模拟空格＋左键拖动。
 
-从托盘「其他工具」打开窗口信息查看器时，初始目标为空。下方的 PersonalScripts 工具按键盘与文字、系统、文件与同步、其他工具分组。第一组可打开自动打字工具、文本处理工具、Unicode 字符查看器和键盘映射编辑器。Unicode 字符查看器会载入剪贴板文本。找不到 PersonalScripts 入口或工具脚本时，可从警告对话框打开 GitHub 项目页下载安装。
+托盘「其他工具」中的 PersonalScripts 入口按键盘与文字、系统、文件与同步、其他工具分组。第一组可打开自动打字工具、文本处理工具、Unicode 字符查看器和键盘映射编辑器。Unicode 字符查看器会载入剪贴板文本。系统组中的窗口信息查看器位于系统事件查看器下方，从这里打开时初始目标为空。找不到 PersonalScripts 入口或工具脚本时，可从警告对话框打开 GitHub 项目页下载安装。
 
 同一菜单中的 `rclone-sync` 和末尾分隔线下方的 `run-script 启动器` 优先在 Windows Terminal 新窗口中打开，Terminal 不可用时自动使用独立控制台。两种窗口均支持 ANSI 颜色和光标控制。
 

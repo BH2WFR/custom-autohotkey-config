@@ -7,15 +7,9 @@
     static ErrorDuration := 1800
     PassHwnd := 0
 
-    __New(tooltip, settings, styleChanged := 0) {
+    __New(tooltip, settings) {
         this.Tooltip := tooltip
         this.Settings := settings
-        this.StyleChanged := styleChanged
-    }
-
-    NotifyStyleChanged(hwnd) {
-        if this.StyleChanged
-            this.StyleChanged.Call(hwnd)
     }
 
     ; 所有入口共用错误提示，基础窗口库继续抛出原始异常。
@@ -48,7 +42,6 @@
         if !this.CanAdjust(context.Hwnd)
             return
         WindowTools.CycleOpacity(context.Hwnd)
-        this.NotifyStyleChanged(context.Hwnd)
         percent := Round(WindowTools.GetOpacity(context.Hwnd) / WindowTools.Opaque * 100)
         this.Tooltip.Show("窗口不透明度：" percent "%", WindowActions.TipDuration)
     }
@@ -56,7 +49,6 @@
         if !this.CanAdjust(context.Hwnd)
             return
         enabled := WindowTools.ToggleTopmost(context.Hwnd)
-        this.NotifyStyleChanged(context.Hwnd)
         this.Tooltip.Show(enabled ? "已置顶当前窗口" : "已取消窗口置顶", WindowActions.TipDuration)
     }
     _ShowDesktop() {
@@ -80,7 +72,6 @@
                 if !DllCall("IsWindow", "Ptr", this.PassHwnd)
                     this.PassHwnd := 0
             }
-            this.NotifyStyleChanged(this.PassHwnd)
             this.Tooltip.Show("已开启窗口穿透`n再按一次恢复", WindowActions.PassTipDuration)
         }
     }
@@ -93,7 +84,6 @@
             WindowTools.RequireWindow(hwnd)
             WindowTools.PassThrough(hwnd, false, this.PassOpacity)
             this.PassHwnd := 0
-            this.NotifyStyleChanged(hwnd)
             return hwnd
         } finally {
             ; 窗口关闭后清掉失效记录；仍存在的窗口保留记录以便再次关闭穿透。
@@ -108,7 +98,6 @@
             return
         value := WindowActions.AdjustTransparency(delta, hwnd)
         if IsNumber(value) {
-            this.NotifyStyleChanged(hwnd)
             this.Tooltip.Show("窗口不透明度：" Round(value / WindowTools.Opaque * 100) "%", WindowActions.TipDuration)
         }
     }

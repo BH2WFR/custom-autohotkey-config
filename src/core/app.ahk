@@ -40,8 +40,8 @@ class App {
         this.ClipboardActions := ClipboardActions(this.Clipboard, this.Typer, this.Sender, this.Tooltip)
         this.TextActions := TextActions(this.Editor, this.Clipboard, this.Sender, this.Tooltip)
         this.Pointer := PointerActions(this.MouseSender, this.MouseSettings)
-        this.WindowInspector := WindowInspectorLauncher(root, this.Tooltip, this.WindowSettings)
-        this.Windows := WindowActions(this.Tooltip, this.WindowSettings, ObjBindMethod(this.WindowInspector, "NotifyStyleChanged"))
+        this.WindowInspector := WindowInspectorActions(this.PersonalTools, this.Tooltip)
+        this.Windows := WindowActions(this.Tooltip, this.WindowSettings)
         this.Keys := KeyboardActions(this.Sender, this.Tooltip)
         this.PathActions := PathMenuActions(this.Tooltip, ObjBindMethod(ShellTools, "Open"))
         this.Wheel := WheelActions(this.MouseSender, this.Sender, this.Tooltip, this.MouseSettings)
@@ -122,8 +122,7 @@ class App {
             }
         }
         editors := SettingInputs.Create(this.MouseSettings, this.WindowSettings, this.PythonSettings, this.PersonalScriptsSettings)
-        apply := Map("condaEnvironment", ObjBindMethod(this.Python, "SetEnvironment"),
-            "passThroughOpacityPercent", (*) => this.WindowInspector.SyncSettings())
+        apply := Map("condaEnvironment", ObjBindMethod(this.Python, "SetEnvironment"))
         for item in editors {
             dialog := SettingsInputDialog(item.Label, item.Rule)
             commands[item.Key] := ObjBindMethod(this.SettingActions, "Edit", dialog, item.Settings, item.Key, apply.Get(item.Key, 0))
@@ -149,7 +148,6 @@ class App {
     }
 
     static ApplySettings() {
-        this.WindowInspector.SyncSettings()
         this.ApplyLayerKeys()
         this.XButtons.SetMappingEnabled(this.MouseSettings.xButtonMapping)
         if this.Python.Environment != this.PythonSettings.condaEnvironment
@@ -164,9 +162,6 @@ class App {
             catch Error as err
                 this.Errors.Report(err)
         }
-        try this.WindowInspector.Close()
-        catch Error as err
-            this.Errors.Report(err)
         try this.Config.SaveAll()
         catch Error as err
             this.Errors.Report(err)
