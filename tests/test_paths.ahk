@@ -8,9 +8,7 @@
 
 class PathMenuTests {
     static Count := 0
-    static MenuDelay := 300
-    static TipDelay := 100
-    class RecordingTooltip {
+    class RecordingTooltip extends TooltipPresenter {
         Show(text, duration) => this.Text := text
     }
     static Assert(value, message) {
@@ -48,7 +46,8 @@ class PathMenuTests {
                     continue
                 actions.Open(item)
                 this.Assert(this.Target == item.Target && this.Folder == item.Folder, "Menu action retains target and launch type: " item.Name)
-                this.Assert(tip.Text == "打开 " item.Name, "Successful launch feedback: " item.Name)
+                expected := item.Folder ? "打开 " item.Name : "正在启动 " item.Name "，请稍等…"
+                this.Assert(tip.Text == expected, "Launch feedback: " item.Name)
             }
         }
         actions.Open(PathMenuBindings.Folder("带空格目录", "C:\path with spaces"))
@@ -64,10 +63,10 @@ class PathMenuTests {
             view.Show()
             this.Assert(FileRead(result, "UTF-8") == "visible", "Native popup is visible and dismisses on cancellation")
             presenter := TooltipPresenter()
-            presenter.Show("提示自动消失测试", this.TipDelay)
-            this.Assert(WinExist("ahk_class tooltips_class32 ahk_pid " DllCall("GetCurrentProcessId")), "Native tooltip is visible")
-            Sleep(this.MenuDelay)
-            this.Assert(!WinExist("ahk_class tooltips_class32 ahk_pid " DllCall("GetCurrentProcessId")), "Native tooltip hides on its one-shot timer")
+            presenter.ShowLaunching("任务管理器")
+            tipHwnd := WinExist("ahk_class tooltips_class32 ahk_pid " ProcessExist())
+            this.Assert(tipHwnd && ControlGetText(tipHwnd) == "正在启动 任务管理器，请稍等…", "Native launch tooltip shows the tool name")
+            this.Assert(!WinWaitClose(tipHwnd,, 1.5) && WinWaitClose(tipHwnd,, 1), "Launch tooltip disappears after about two seconds")
         }
         FileAppend("PASS: " this.Count " path menu and feedback assertions`n", "*", "UTF-8")
     }

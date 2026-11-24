@@ -3,11 +3,12 @@ class PersonalScripts {
     static Launchers := ["run-script.ps1", "run-script.py"]
     static ProjectUrl := "https://github.com/BH2WFR/PersonalScripts"
 
-    __New(python, settings, save, warnMissing) {
+    __New(python, settings, save, warnMissing, onLaunching) {
         this.Python := python
         this.Settings := settings
         this.Save := save
         this.WarnMissing := warnMissing
+        this.OnLaunching := onLaunching
     }
 
     ResolveScript(relativePath) {
@@ -40,6 +41,8 @@ class PersonalScripts {
             this.WarnMissing.Call(err.Message, PersonalScripts.ProjectUrl)
             return 0
         }
+        SplitPath(relativePath,,,, &name)
+        this.OnLaunching.Call(name)
         return this.Python.Launch(target.Script, arguments, target.Directory, mode)
     }
 }

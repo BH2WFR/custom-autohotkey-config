@@ -32,7 +32,7 @@ class App {
         this.MouseSender := MouseSender(this.Sender)
         this.Clipboard := ClipboardService(this.Sender)
         this.PersonalTools := PersonalScripts(this.Python, this.PersonalScriptsSettings, ObjBindMethod(this.Config, "SaveAll"),
-            ObjBindMethod(ApplicationActions, "OfferPersonalScriptsInstall"))
+            ObjBindMethod(ApplicationActions, "OfferPersonalScriptsInstall"), ObjBindMethod(this.Tooltip, "ShowLaunching"))
         this.UnicodeInspector := UnicodeInspectorActions(this.PersonalTools, this.Clipboard)
         this.OpenScreenKeyboard := ObjBindMethod(this, "LaunchScreenKeyboard")
         this.Typer := TextTyper(this.Sender, this.ImeApi)
@@ -40,7 +40,7 @@ class App {
         this.ClipboardActions := ClipboardActions(this.Clipboard, this.Typer, this.Sender, this.Tooltip)
         this.TextActions := TextActions(this.Editor, this.Clipboard, this.Sender, this.Tooltip)
         this.Pointer := PointerActions(this.MouseSender, this.MouseSettings)
-        this.WindowInspector := WindowInspectorActions(this.PersonalTools, this.Tooltip)
+        this.WindowInspector := WindowInspectorActions(this.PersonalTools)
         this.Windows := WindowActions(this.Tooltip, this.WindowSettings)
         this.Keys := KeyboardActions(this.Sender, this.Tooltip)
         this.PathActions := PathMenuActions(this.Tooltip, ObjBindMethod(ShellTools, "Open"))

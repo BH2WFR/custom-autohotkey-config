@@ -56,8 +56,9 @@ class PersonalScriptsTests {
         settings := manager.Register(AppSettings.PersonalScripts(), "PersonalScripts")
         manager.LoadAll()
         python := this.Python(), clipboard := this.Clipboard()
+        notices := [], notify := ObjBindMethod(notices, "Push")
         actions := PersonalScripts(python, settings, ObjBindMethod(manager, "SaveAll"),
-            ObjBindMethod(ApplicationActions, "OfferPersonalScriptsInstall"))
+            ObjBindMethod(ApplicationActions, "OfferPersonalScriptsInstall"), notify)
         inspector := UnicodeInspectorActions(actions, clipboard)
         resolve := ObjBindMethod(actions, "ResolveScript", UnicodeInspectorActions.Script)
         try {
@@ -69,7 +70,7 @@ class PersonalScriptsTests {
             this.Assert(Config.LoadJson(manager.Path)["PersonalScripts"]["launcherPath"] == psLauncher, "Persist discovered launcher")
             runtime := PythonRuntime("base")
             consoleTools := PersonalScripts(runtime, settings, ObjBindMethod(manager, "SaveAll"),
-                ObjBindMethod(ApplicationActions, "OfferPersonalScriptsInstall"))
+                ObjBindMethod(ApplicationActions, "OfferPersonalScriptsInstall"), notify)
             probe := "import ctypes, msvcrt, os, sys`nfrom pathlib import Path`n"
                 . "valid = sys.stdin.isatty() and len(sys.argv) == 1`n"
                 . "for stream in (sys.stdout, sys.stderr):`n"
@@ -87,6 +88,7 @@ class PersonalScriptsTests {
                 if useTerminal && !PythonRuntime.FindWindowsTerminal()
                     continue
                 pid := consoleTools.LaunchConsole("run-script.py")
+                this.Assert(notices[-1] == "run-script", "Console launch announces the tool")
                 deadline := A_TickCount + 10000
                 result := directory "\console.txt"
                 while !FileExist(result) && A_TickCount < deadline
@@ -105,6 +107,7 @@ class PersonalScriptsTests {
             this.Assert(resolve.Call().Script == script && settings.launcherPath == pyLauncher, "Stale setting falls back to Python launcher")
             this.Assert(Config.LoadJson(manager.Path)["PersonalScripts"]["launcherPath"] == pyLauncher, "Replacement path persisted")
             this.Assert(inspector.Open({Hwnd: 0}) == 123, "Launch returns process ID")
+            this.Assert(notices[-1] == "unicode-inspector", "GUI launch announces the tool")
             this.Assert(python.Last.Script == script && python.Last.Directory == directory, "Launch target directly, not launcher")
             this.Assert(clipboard.Copies == 1 && python.Last.Arguments.Length == 1 && python.Last.Arguments[1] == "--clip",
                 "Hotkey copies the selection and passes only the clipboard flag")

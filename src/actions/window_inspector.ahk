@@ -1,18 +1,15 @@
 ; 把触发时的窗口身份交给 PersonalScripts；托盘用零句柄打开空白查看器。
 class WindowInspectorActions {
     static Script := "tools\others\window-inspector.py"
-    static StartupTipMs := 800
     static StartupTimeoutSeconds := 10
 
-    __New(scripts, tooltip) {
+    __New(scripts) {
         this.Scripts := scripts
-        this.Tooltip := tooltip
     }
 
     Open(context := unset) {
         hwnd := IsSet(context) ? context.Hwnd : 0
         pid := hwnd ? WinGetPID(hwnd) : 0
-        this.Tooltip.Show("窗口信息查看器：正在启动，请稍等…", WindowInspectorActions.StartupTipMs)
         inspectorPid := this.Scripts.Launch(WindowInspectorActions.Script, ["--startup-window", hwnd, pid])
         if inspectorPid {
             inspector := WinWait("Window Inspector ahk_pid " inspectorPid,, WindowInspectorActions.StartupTimeoutSeconds)
