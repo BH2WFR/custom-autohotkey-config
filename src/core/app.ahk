@@ -33,14 +33,19 @@ class App {
         this.Clipboard := ClipboardService(this.Sender)
         this.PersonalTools := PersonalScripts(this.Python, this.PersonalScriptsSettings, ObjBindMethod(this.Config, "SaveAll"),
             ObjBindMethod(ApplicationActions, "OfferPersonalScriptsInstall"), ObjBindMethod(this.Tooltip, "ShowLaunching"))
-        this.UnicodeInspector := UnicodeInspectorActions(this.PersonalTools, this.Clipboard)
+        clipboardTools := ClipboardToolActions(this.PersonalTools, this.Clipboard)
         this.OpenScreenKeyboard := ObjBindMethod(this, "LaunchScreenKeyboard")
         this.Typer := TextTyper(this.Sender, this.ImeApi)
         this.Editor := TextEditor(this.Sender, this.Clipboard)
         this.ClipboardActions := ClipboardActions(this.Clipboard, this.Typer, this.Sender, this.Tooltip)
         this.TextActions := TextActions(this.Editor, this.Clipboard, this.Sender, this.Tooltip)
         this.Pointer := PointerActions(this.MouseSender, this.MouseSettings)
-        this.WindowInspector := WindowInspectorActions(this.PersonalTools)
+        this.ToolCommands := Map(
+            "windowInspector", ObjBindMethod(WindowInspectorActions(this.PersonalTools), "Open"),
+            "unicodeInspector", ObjBindMethod(clipboardTools, "Open", ClipboardToolActions.UnicodeInspector),
+            "textProcessor", ObjBindMethod(clipboardTools, "Open", ClipboardToolActions.TextProcessor),
+            "solidMask", ObjBindMethod(this, "LaunchScreenMask", "--solid"),
+            "hollowMask", ObjBindMethod(this, "LaunchScreenMask", "--hollow"))
         this.Windows := WindowActions(this.Tooltip, this.WindowSettings)
         this.Keys := KeyboardActions(this.Sender, this.Tooltip)
         this.PathActions := PathMenuActions(this.Tooltip, ObjBindMethod(ShellTools, "Open"))
@@ -54,7 +59,7 @@ class App {
             CapsPolicy.Aliases(this.Settings), ObjBindMethod(this.Ime, "ToggleLanguage"))
         this.Paths := PopupMenuView(PathMenuBindings.Create(root), ObjBindMethod(this.PathActions, "Open"))
         HotkeyBindings.Register(this.Registry, this.Diagnostics, this.Ime, this.OpenScreenKeyboard, this.Anki, this.Touchpad, this.Wheel,
-            this.Sender, this.ClipboardActions, this.TextActions, this.MouseSender, this.Pointer, this.Windows, this.Keys, this.Paths, this.UnicodeInspector, this.WindowInspector)
+            this.Sender, this.ClipboardActions, this.TextActions, this.MouseSender, this.Pointer, this.Windows, this.Keys, this.Paths, this.ToolCommands)
         this.Input.Start()
         this.Mouse := MouseController(this.MouseSettings, this.MouseSender)
         this.WindowAutomation := WindowAutomation(this.Sender)
@@ -77,13 +82,9 @@ class App {
         commands := Map(
             "keyboard", this.OpenScreenKeyboard,
             "paths", ObjBindMethod(this.Paths, "Show"),
-            "windowInspector", ObjBindMethod(this.WindowInspector, "Open"),
-            "unicodeInspector", ObjBindMethod(this.UnicodeInspector, "Open"),
             "autoTyper", ObjBindMethod(this.PersonalTools, "Launch", "tools\input-and-text\auto-typer.py"),
-            "textProcessor", ObjBindMethod(this.PersonalTools, "Launch", "tools\input-and-text\text-processor.py"),
             "keyboardRemapper", ObjBindMethod(this.PersonalTools, "Launch", "tools\windows\keyboard-remapper.py"),
             "systemEventViewer", ObjBindMethod(this.PersonalTools, "Launch", "tools\others\system-event-viewer.py"),
-            "screenMask", ObjBindMethod(this.PersonalTools, "Launch", "tools\others\screen-mask.py"),
             "imageOcr", ObjBindMethod(this.PersonalTools, "Launch", "tools\document-processing\image-to-text-and-formula.py"),
             "matrixViewer", ObjBindMethod(this.PersonalTools, "Launch", "tools\research\matrix-viewer.py"),
             "rcloneSync", ObjBindMethod(this.PersonalTools, "LaunchConsole", "tools\network\rclone-sync.py"),
@@ -98,6 +99,8 @@ class App {
             "help", ObjBindMethod(ApplicationActions, "OpenPath", this.Root "\README.md"),
             "pause", ObjBindMethod(this.Session, "Toggle"),
             "resetHooks", ObjBindMethod(this.Session, "ResetHooks", ObjBindMethod(NativeHotkeys, "ResetHooks")))
+        for id, command in this.ToolCommands
+            commands[id] := command
         checks := Map(
             "mouse", ObjBindMethod(this.Mouse, "FunctionKeysEnabled"),
             "xbuttons", ObjBindMethod(SettingsActions, "Read", this.MouseSettings, "xButtonMapping"),
@@ -130,6 +133,8 @@ class App {
         }
         this.Tray := TrayView(this.Root, TrayBindings.Create(commands, checks, editors), checks["pause"])
     }
+
+    static LaunchScreenMask(shape, *) => this.PersonalTools.Launch("tools\others\screen-mask.py", [shape])
 
     static LaunchScreenKeyboard(*) {
         arguments := []

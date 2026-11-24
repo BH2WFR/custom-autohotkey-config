@@ -35,7 +35,7 @@
 #Include src/hotkeys/keyboard_hook.ahk
 #Include src/actions/diagnosis.ahk
 #Include src/actions/personal_scripts.ahk
-#Include src/actions/unicode_inspector.ahk
+#Include src/actions/clipboard_tools.ahk
 #Include src/actions/settings.ahk
 #Include src/actions/application.ahk
 #Include src/actions/mouse.ahk

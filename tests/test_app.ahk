@@ -31,7 +31,7 @@
 #Include ../src/hotkeys/keyboard_hook.ahk
 #Include ../src/actions/diagnosis.ahk
 #Include ../src/actions/personal_scripts.ahk
-#Include ../src/actions/unicode_inspector.ahk
+#Include ../src/actions/clipboard_tools.ahk
 #Include ../src/actions/settings.ahk
 #Include ../src/actions/application.ahk
 #Include ../src/actions/mouse.ahk
@@ -115,6 +115,12 @@ class AppTests {
             if id == "" {
                 this.Assert(DllCall("GetMenuState", "Ptr", toolsMenu, "UInt", position - 1, "UInt", 0x400) & 0x800,
                     "Tool group separator at position " position)
+            } else if id == "screenMask" {
+                child := App.Tray.Entries["solidMask"].Menu
+                this.Assert(this.MenuHas(localTools, "屏幕遮挡器") == position && child.Handle
+                    == DllCall("GetSubMenu", "Ptr", toolsMenu, "Int", position - 1, "Ptr"), "Screen mask submenu")
+                this.Assert(child.Handle == App.Tray.Entries["hollowMask"].Menu.Handle
+                    && this.MenuHas(child, "创建实心遮挡") == 1 && this.MenuHas(child, "创建空心遮挡") == 2, "Screen mask shapes")
             } else {
                 entry := App.Tray.Entries[id]
                 this.Assert(entry.Menu.Handle == toolsMenu && this.MenuHas(localTools, entry.Item.Label) == position,
@@ -123,15 +129,31 @@ class AppTests {
         }
         if A_Args.Length && A_Args[1] == "--tools-only" {
             this.CheckToolLaunch("autoTyper", "Auto Typer")
-            this.CheckToolLaunch("textProcessor", "Text Processor")
+            this.CheckToolLaunch("textProcessor", "Text and Path Processor")
             this.CheckToolLaunch("windowInspector", "Window Inspector")
-            this.CheckToolLaunch("screenMask", "Screen Mask")
-            target := Gui(, "Caps+W inspection target")
+            this.CheckToolLaunch("solidMask", "Screen Mask")
+            this.CheckToolLaunch("hollowMask", "Screen Mask")
+            target := Gui(, "Layer tool test")
+            edit := target.AddEdit("w280")
+            saved := ClipboardAll()
             try {
                 target.Show("w300 h100")
-                this.Assert(WinWaitActive(target.Hwnd,, 2), "Caps+W target has focus")
-                this.CheckToolLaunch("windowInspector", "Window Inspector", target.Hwnd)
-            } finally target.Destroy()
+                for tool in [["windowInspector", "Window Inspector", "w"], ["textProcessor", "Text and Path Processor", "y"],
+                        ["unicodeInspector", "Unicode Inspector", "+y"], ["solidMask", "Screen Mask", "5"], ["hollowMask", "Screen Mask", "+5"]] {
+                    WinActivate(target.Hwnd)
+                    this.Assert(WinWaitActive(target.Hwnd,, 2), "Tool target has focus")
+                    edit.Focus()
+                    edit.Value := "abc 中文 Ω"
+                    SendMessage(0xB1, 4, -1, edit) ; EM_SETSEL
+                    A_Clipboard := "previous"
+                    this.CheckToolLaunch(tool[1], tool[2], target.Hwnd, tool[3])
+                    if InStr(tool[3], "y")
+                        this.Assert(A_Clipboard == "中文 Ω", "Selected substring remains on clipboard")
+                }
+            } finally {
+                A_Clipboard := saved
+                target.Destroy()
+            }
             App.Stop()
             FileAppend("PASS: " this.Count " native tray tool assertions" Chr(10), "*", "UTF-8")
             return
@@ -236,7 +258,7 @@ class AppTests {
         FileAppend("PASS: " this.Count " app assertions" Chr(10), "*", "UTF-8")
     }
 
-    static CheckToolLaunch(id, title, hotkeyTarget := 0) {
+    static CheckToolLaunch(id, title, hotkeyTarget := 0, chord := "") {
         entry := App.Tray.Entries[id]
         position := this.MenuHas(entry.Menu, entry.Item.Label) - 1
         command := DllCall("GetMenuItemID", "Ptr", entry.Menu.Handle, "Int", position, "UInt")
@@ -247,12 +269,22 @@ class AppTests {
         if hotkeyTarget {
             previousLevel := A_SendLevel
             SendLevel(1)
+            shifted := SubStr(chord, 1, 1) == "+"
+            key := shifted ? SubStr(chord, 2) : chord
             try {
+                if shifted {
+                    SendEvent("{Blind}{LShift down}")
+                    Sleep(50)
+                }
                 SendEvent("{Blind}{F24 down}")
                 Sleep(50)
-                SendEvent("{Blind}{w down}{w up}")
+                SendEvent("{Blind}{" key " down}")
+                Sleep(50)
             } finally {
+                SendEvent("{Blind}{" key " up}")
                 SendEvent("{Blind}{F24 up}")
+                if shifted
+                    SendEvent("{Blind}{LShift up}")
                 SendLevel(previousLevel)
             }
         } else
@@ -263,7 +295,21 @@ class AppTests {
                 if existing.Has(hwnd) || WinGetTitle(hwnd) != title
                     continue
                 try {
-                    if id == "windowInspector" {
+                    if id == "solidMask" || id == "hollowMask" {
+                        region := DllCall("CreateRectRgn", "Int", 0, "Int", 0, "Int", 0, "Int", 0, "Ptr")
+                        try {
+                            WinGetPos(,, &width, &height, hwnd)
+                            hasRegion := DllCall("GetWindowRgn", "Ptr", hwnd, "Ptr", region)
+                            centerFilled := !hasRegion || DllCall("PtInRegion", "Ptr", region, "Int", width // 2, "Int", height // 2)
+                            this.Assert(centerFilled == (id == "solidMask"), "Mask center matches " id)
+                        } finally DllCall("DeleteObject", "Ptr", region)
+                    } else if id == "textProcessor" || id == "unicodeInspector" {
+                        active := WinWaitActive(hwnd,, 2)
+                        this.Assert(active, title " takes foreground focus (foreground: " (WinExist("A") ? WinGetTitle("A") : "none") ")")
+                        process := ComObjGet("winmgmts:Win32_Process.Handle='" WinGetPID(hwnd) "'")
+                        this.Assert(InStr(process.CommandLine, "--clip") > 0 == (!!hotkeyTarget || id == "unicodeInspector"),
+                            "Clipboard flag for " title)
+                    } else if id == "windowInspector" {
                         this.Assert(WinWaitActive(hwnd,, 2), "New inspector takes foreground focus")
                         process := ComObjGet("winmgmts:Win32_Process.Handle='" WinGetPID(hwnd) "'")
                         targetPid := hotkeyTarget ? WinGetPID(hotkeyTarget) : 0
@@ -276,7 +322,7 @@ class AppTests {
             }
             Sleep(50)
         } until A_TickCount >= deadline
-        throw Error("Tray command did not open " title)
+        throw Error((hotkeyTarget ? "Layer hotkey " chord : "Tray command") " did not open " title)
     }
 
     static MenuHas(menu, label) {

@@ -281,7 +281,10 @@ class HotkeyTests {
         diagnostics := HotkeyDiagnostics(display)
         registry := HotkeyRegistry()
         actions := this.FakeActions()
-        HotkeyBindings.Register(registry, diagnostics, actions, ObjBindMethod(actions, "Open"), actions, actions, actions, actions, actions, actions, actions, actions, actions, actions, actions, actions, actions)
+        tools := Map()
+        for id in ["textProcessor", "unicodeInspector", "windowInspector", "solidMask", "hollowMask"]
+            tools[id] := ObjBindMethod(actions, "Open", id)
+        HotkeyBindings.Register(registry, diagnostics, actions, ObjBindMethod(actions, "Open"), actions, actions, actions, actions, actions, actions, actions, actions, actions, actions, actions, tools)
         this.Assert(registry.Resolve("e", 1).Mode == "once" && !registry.Resolve("e", 2), "目录菜单只注册全局第一层且一次性触发")
         this.Assert(registry.Resolve("s", 1).Mode == "once", "GUI 明确注册为一次性动作")
         this.Assert(registry.Resolve("w", 1).Mode == "once" && !registry.Resolve("w", 2), "窗口查看器仅注册第一层一次性动作")
@@ -290,8 +293,15 @@ class HotkeyTests {
         this.Assert(registry.Resolve("t", 1).Mode == "layers" && !registry.Resolve("t", 2), "窗口置顶可连续切换，第二层未绑定")
         this.Assert(registry.Resolve("t", 1, 7).Callback != registry.Resolve("t", 1).Callback
             && !registry.Resolve("t", 2, 7), "Anki T 保留样式动作且空白层不回退")
-        this.Assert(registry.Resolve("7", 1).Mode == "once" && registry.Resolve("7", 2).Mode == "layers"
-            && !registry.Resolve("7", 3) && !registry.Resolve("7", 4), "字符查看器第一层一次性，首字母大写第二层可连续触发")
+        this.Assert(registry.Resolve("7", 1).Mode == "layers" && !registry.Resolve("7", 2)
+            && !registry.Resolve("7", 3) && !registry.Resolve("7", 4), "首字母大写仅使用第一层，可重复触发")
+        for key, ids in Map("5", ["solidMask", "hollowMask"], "y", ["textProcessor", "unicodeInspector"]) {
+            for layer, id in ids {
+                binding := registry.Resolve(key, layer)
+                this.Assert(binding.Mode == "once" && binding.Callback == tools[id], "工具绑定：" id)
+            }
+            this.Assert(!registry.Resolve(key, 3) && !registry.Resolve(key, 4), "工具只绑定第一、二层")
+        }
         for key in ["x", "c", "v", "z", "Space"]
             this.Assert(registry.Resolve(key, 1).Mode == "layers", "剪贴板及特殊空格使用默认重复模式")
         for key in ["-", "="] {

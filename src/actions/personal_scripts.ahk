@@ -2,6 +2,7 @@
 class PersonalScripts {
     static Launchers := ["run-script.ps1", "run-script.py"]
     static ProjectUrl := "https://github.com/BH2WFR/PersonalScripts"
+    static StartupTimeoutSeconds := 10
 
     __New(python, settings, save, warnMissing, onLaunching) {
         this.Python := python
@@ -34,6 +35,17 @@ class PersonalScripts {
     }
 
     LaunchConsole(relativePath) => this.Launch(relativePath, [], PythonRuntime.ConsoleMode)
+
+    LaunchWindow(relativePath, title, arguments := []) {
+        pid := this.Launch(relativePath, arguments)
+        if pid {
+            hwnd := WinWait(title " ahk_pid " pid,, PersonalScripts.StartupTimeoutSeconds)
+            if !hwnd
+                throw TargetError("未找到新启动的窗口：" title)
+            WinActivate(hwnd)
+        }
+        return pid
+    }
 
     Launch(relativePath, arguments := [], mode := PythonRuntime.GuiMode) {
         try target := this.ResolveScript(relativePath)

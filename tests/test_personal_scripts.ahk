@@ -9,7 +9,7 @@
 #Include ../src/rules/editing.ahk
 #Include ../src/core/settings.ahk
 #Include ../src/actions/personal_scripts.ahk
-#Include ../src/actions/unicode_inspector.ahk
+#Include ../src/actions/clipboard_tools.ahk
 #Include ../src/actions/application.ahk
 
 class PersonalScriptsTests {
@@ -23,6 +23,9 @@ class PersonalScriptsTests {
     class Clipboard {
         Copies := 0
         CopySelection(keys) => ++this.Copies
+    }
+    class Scripts extends PersonalScripts {
+        LaunchWindow(script, title, arguments) => this.Launch(script, arguments)
     }
     static Assert(value, message) {
         this.Count++
@@ -48,7 +51,8 @@ class PersonalScriptsTests {
         directory := A_ScriptDir "\..\tmp\personal scripts test " DllCall("GetCurrentProcessId")
         scriptDirectory := directory "\tools\input-and-text"
         DirCreate(scriptDirectory)
-        script := directory "\" UnicodeInspectorActions.Script
+        script := directory "\" ClipboardToolActions.UnicodeInspector.Script
+        textScript := directory "\" ClipboardToolActions.TextProcessor.Script
         psLauncher := directory "\run-script.ps1", pyLauncher := directory "\run-script.py"
         savedPath := EnvGet("PATH")
         localAppData := EnvGet("LOCALAPPDATA"), parentSession := EnvGet("WT_SESSION")
@@ -57,12 +61,15 @@ class PersonalScriptsTests {
         manager.LoadAll()
         python := this.Python(), clipboard := this.Clipboard()
         notices := [], notify := ObjBindMethod(notices, "Push")
-        actions := PersonalScripts(python, settings, ObjBindMethod(manager, "SaveAll"),
+        actions := this.Scripts(python, settings, ObjBindMethod(manager, "SaveAll"),
             ObjBindMethod(ApplicationActions, "OfferPersonalScriptsInstall"), notify)
-        inspector := UnicodeInspectorActions(actions, clipboard)
-        resolve := ObjBindMethod(actions, "ResolveScript", UnicodeInspectorActions.Script)
+        clipboardTools := ClipboardToolActions(actions, clipboard)
+        inspector := ObjBindMethod(clipboardTools, "Open", ClipboardToolActions.UnicodeInspector)
+        processor := ObjBindMethod(clipboardTools, "Open", ClipboardToolActions.TextProcessor)
+        resolve := ObjBindMethod(actions, "ResolveScript", ClipboardToolActions.UnicodeInspector.Script)
         try {
             FileAppend("", psLauncher), FileAppend("", pyLauncher), FileAppend("", script)
+            FileAppend("", textScript)
             EnvSet("PATH", '"' directory '"')
             target := resolve.Call()
             this.Assert(target.Script == script && target.Directory == directory, "Direct target relative to launcher")
@@ -106,24 +113,29 @@ class PersonalScriptsTests {
             FileDelete(psLauncher)
             this.Assert(resolve.Call().Script == script && settings.launcherPath == pyLauncher, "Stale setting falls back to Python launcher")
             this.Assert(Config.LoadJson(manager.Path)["PersonalScripts"]["launcherPath"] == pyLauncher, "Replacement path persisted")
-            this.Assert(inspector.Open({Hwnd: 0}) == 123, "Launch returns process ID")
+            this.Assert(inspector.Call({Hwnd: 0}) == 123, "Launch returns process ID")
             this.Assert(notices[-1] == "unicode-inspector", "GUI launch announces the tool")
             this.Assert(python.Last.Script == script && python.Last.Directory == directory, "Launch target directly, not launcher")
             this.Assert(clipboard.Copies == 1 && python.Last.Arguments.Length == 1 && python.Last.Arguments[1] == "--clip",
                 "Hotkey copies the selection and passes only the clipboard flag")
-            inspector.Open()
+            inspector.Call()
             this.Assert(clipboard.Copies == 1 && python.Last.Arguments.Length == 1 && python.Last.Arguments[1] == "--clip",
                 "Tray uses the existing clipboard without copying the selection")
+            processor.Call({Hwnd: 0})
+            this.Assert(clipboard.Copies == 2 && python.Last.Script == textScript
+                && python.Last.Arguments.Length == 1 && python.Last.Arguments[1] == "--clip", "Text tool reads the selection")
+            processor.Call()
+            this.Assert(clipboard.Copies == 2 && !python.Last.Arguments.Length, "Text tool opens empty from the tray")
             FileDelete(script)
-            this.Missing(ObjBindMethod(actions, "Launch", UnicodeInspectorActions.Script), UnicodeInspectorActions.Script)
+            this.Missing(ObjBindMethod(actions, "Launch", ClipboardToolActions.UnicodeInspector.Script), ClipboardToolActions.UnicodeInspector.Script)
             FileDelete(pyLauncher)
-            this.Missing(ObjBindMethod(inspector, "Open", {Hwnd: 0}), "找不到 PersonalScripts 入口")
+            this.Missing(inspector.Bind({Hwnd: 0}), "找不到 PersonalScripts 入口")
             FileAppend("PASS: " this.Count " personal-script assertions`n", "*", "UTF-8")
         } finally {
             EnvSet("PATH", savedPath)
             EnvSet("LOCALAPPDATA", localAppData)
             EnvSet("WT_SESSION", parentSession)
-            for path in [script, psLauncher, pyLauncher, manager.Path, directory "\console.txt"] {
+            for path in [script, textScript, psLauncher, pyLauncher, manager.Path, directory "\console.txt"] {
                 if FileExist(path)
                     FileDelete(path)
             }

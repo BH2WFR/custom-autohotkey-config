@@ -1,6 +1,6 @@
 ﻿; Pass 保留修饰键，Layers 每层使用一个独立 Map。
 class HotkeyBindings {
-    static Register(registry, diagnostics, ime, openScreenKeyboard, anki, touchpad, wheel, sender, clipboard, text, mouse, pointer, windows, keys, paths, unicodeInspector, windowInspector) {
+    static Register(registry, diagnostics, ime, openScreenKeyboard, anki, touchpad, wheel, sender, clipboard, text, mouse, pointer, windows, keys, paths, tools) {
         registry.Pass("q", ObjBindMethod(keys, "Send", "{Esc}", "Esc"))
         registry.Pass("\", ObjBindMethod(keys, "Send", "{vkE2sc056}", "ISO 反斜杠"))
         registry.Pass("u", ObjBindMethod(mouse, "Click", "LButton"))
@@ -9,11 +9,12 @@ class HotkeyBindings {
             registry.Pass(key, ObjBindMethod(pointer, "Move", direction[1], direction[2]))
         registry.Layers("``", Map(1, ObjBindMethod(keys, "Release")))
         registry.Once("e", Map(1, ObjBindMethod(paths, "Show")))
-        registry.Once("w", Map(1, ObjBindMethod(windowInspector, "Open")))
+        registry.Once("w", Map(1, tools["windowInspector"]))
+        registry.Once("y", Map(1, tools["textProcessor"]), Map(2, tools["unicodeInspector"]))
         registry.Layers("4", Map(1, ObjBindMethod(text, "Wrap")))
+        registry.Once("5", Map(1, tools["solidMask"]), Map(2, tools["hollowMask"]))
         registry.Layers("6", Map(1, ObjBindMethod(text, "Case", false)), Map(2, ObjBindMethod(text, "Case", true)))
-        registry.Once("7", Map(1, ObjBindMethod(unicodeInspector, "Open")))
-        registry.Layers("7", Map(2, ObjBindMethod(text, "TitleCase")))
+        registry.Layers("7", Map(1, ObjBindMethod(text, "TitleCase")))
         registry.Layers("Tab", Map(1, ObjBindMethod(text, "Indent", false)), Map(2, ObjBindMethod(text, "Indent", true)),
             Map(3, ObjBindMethod(text, "Insert", "`t")))
         registry.Layers("r", Map(1, ObjBindMethod(windows, "Center", false)), Map(2, ObjBindMethod(windows, "Center", true)))

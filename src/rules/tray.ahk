@@ -11,12 +11,14 @@ class TrayBindings {
             {Label: "其他工具", Items: [
                 {Heading: " 以下为 PersonalScripts 工具"},
                 this.Item("autoTyper", "自动打字工具", commands, checks),
-                this.Item("textProcessor", "文本处理工具", commands, checks),
+                this.Item("textProcessor", "文本/路径变换工具", commands, checks),
                 this.Item("unicodeInspector", "Unicode 字符查看器", commands, checks),
                 this.Item("keyboardRemapper", "键盘映射编辑器", commands, checks), "",
                 this.Item("systemEventViewer", "系统事件查看器", commands, checks),
                 this.Item("windowInspector", "窗口信息查看器", commands, checks),
-                this.Item("screenMask", "屏幕遮挡器", commands, checks), "",
+                {Label: "屏幕遮挡器", Items: [
+                    this.Item("solidMask", "创建实心遮挡", commands, checks),
+                    this.Item("hollowMask", "创建空心遮挡", commands, checks)]}, "",
                 this.Item("rcloneSync", "rclone-sync", commands, checks), "",
                 this.Item("imageOcr", "图片文字与公式识别", commands, checks),
                 this.Item("matrixViewer", "矩阵查看器", commands, checks), "",
