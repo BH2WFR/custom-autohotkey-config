@@ -2,6 +2,7 @@
 class WindowInspectorActions {
     static Script := "tools\others\window-inspector.py"
     static StartupTipMs := 800
+    static StartupTimeoutSeconds := 10
 
     __New(scripts, tooltip) {
         this.Scripts := scripts
@@ -12,6 +13,13 @@ class WindowInspectorActions {
         hwnd := IsSet(context) ? context.Hwnd : 0
         pid := hwnd ? WinGetPID(hwnd) : 0
         this.Tooltip.Show("窗口信息查看器：正在启动，请稍等…", WindowInspectorActions.StartupTipMs)
-        return this.Scripts.Launch(WindowInspectorActions.Script, ["--startup-window", hwnd, pid])
+        inspectorPid := this.Scripts.Launch(WindowInspectorActions.Script, ["--startup-window", hwnd, pid])
+        if inspectorPid {
+            inspector := WinWait("Window Inspector ahk_pid " inspectorPid,, WindowInspectorActions.StartupTimeoutSeconds)
+            if !inspector
+                throw TargetError("未找到新启动的窗口信息查看器。")
+            WinActivate(inspector)
+        }
+        return inspectorPid
     }
 }

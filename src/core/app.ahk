@@ -83,6 +83,7 @@ class App {
             "textProcessor", ObjBindMethod(this.PersonalTools, "Launch", "tools\input-and-text\text-processor.py"),
             "keyboardRemapper", ObjBindMethod(this.PersonalTools, "Launch", "tools\windows\keyboard-remapper.py"),
             "systemEventViewer", ObjBindMethod(this.PersonalTools, "Launch", "tools\others\system-event-viewer.py"),
+            "screenMask", ObjBindMethod(this.PersonalTools, "Launch", "tools\others\screen-mask.py"),
             "imageOcr", ObjBindMethod(this.PersonalTools, "Launch", "tools\document-processing\image-to-text-and-formula.py"),
             "matrixViewer", ObjBindMethod(this.PersonalTools, "Launch", "tools\research\matrix-viewer.py"),
             "rcloneSync", ObjBindMethod(this.PersonalTools, "LaunchConsole", "tools\network\rclone-sync.py"),

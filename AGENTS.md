@@ -100,7 +100,7 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 
 ## 启动与托盘
 
-- 带 GUI 的复杂工具列入「快捷路径与系统工具」正下方的「其他工具」子菜单，默认同时提供热键。键盘映射编辑器、系统事件查看器、图片文字与公式识别、矩阵查看器仅设托盘入口。从托盘打开查看器时不取前台窗口或选区。
+- 带 GUI 的复杂工具列入「快捷路径与系统工具」正下方的「其他工具」子菜单，默认同时提供热键。键盘映射编辑器、系统事件查看器、屏幕遮挡器、图片文字与公式识别、矩阵查看器仅设托盘入口。从托盘打开查看器时不取前台窗口或选区。
 - `main.ahk` 先调用 `Startup.RequireAdmin()`，用 `A_IsAdmin` 检查权限并通过 `*RunAs` 提权重启；取消或提权失败则退出，`/restart` 防止循环重启，随后才执行 `App.Start()`。
 - `App.Start()` 加载配置、定位 Conda Python、注册热键并创建托盘；图标使用 `res/MainBusy.ico`、`MainIcon.ico`、`MainSuspend.ico`。
 - 托盘图标不冻结：自定义暂停使用 `MainSuspend.ico`，原生 Suspend/Pause 使用 AHK 自带状态图标，恢复后显示项目图标。

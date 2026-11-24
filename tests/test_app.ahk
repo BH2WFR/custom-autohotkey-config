@@ -109,7 +109,7 @@ class AppTests {
         heading := this.MenuHas(localTools, " 以下为 PersonalScripts 工具")
         this.Assert(heading == 1 && DllCall("GetMenuState", "Ptr", toolsMenu, "UInt", 0, "UInt", 0x400) & 3,
             "The disabled PersonalScripts heading opens the tools submenu")
-        for id in ["autoTyper", "textProcessor", "unicodeInspector", "keyboardRemapper", "", "systemEventViewer", "windowInspector", "",
+        for id in ["autoTyper", "textProcessor", "unicodeInspector", "keyboardRemapper", "", "systemEventViewer", "windowInspector", "screenMask", "",
                 "rcloneSync", "", "imageOcr", "matrixViewer", "", "runScript"] {
             position := heading + A_Index
             if id == "" {
@@ -125,6 +125,7 @@ class AppTests {
             this.CheckToolLaunch("autoTyper", "Auto Typer")
             this.CheckToolLaunch("textProcessor", "Text Processor")
             this.CheckToolLaunch("windowInspector", "Window Inspector")
+            this.CheckToolLaunch("screenMask", "Screen Mask")
             target := Gui(, "Caps+W inspection target")
             try {
                 target.Show("w300 h100")
@@ -263,6 +264,7 @@ class AppTests {
                     continue
                 try {
                     if id == "windowInspector" {
+                        this.Assert(WinWaitActive(hwnd,, 2), "New inspector takes foreground focus")
                         process := ComObjGet("winmgmts:Win32_Process.Handle='" WinGetPID(hwnd) "'")
                         targetPid := hotkeyTarget ? WinGetPID(hotkeyTarget) : 0
                         this.Assert(RegExMatch(StrReplace(process.CommandLine, '"'), "--startup-window " hotkeyTarget " " targetPid "$"),
