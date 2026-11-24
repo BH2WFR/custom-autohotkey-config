@@ -1,6 +1,6 @@
 ﻿; Unicode 查看器的选区输入与界面反馈。
 class UnicodeInspectorActions {
-    static Script := "tools\others\unicode-inspector.py"
+    static Script := "tools\input-and-text\unicode-inspector.py"
     static Title := "Unicode 字符查看器"
 
     __New(scripts, clipboard) {

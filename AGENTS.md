@@ -110,7 +110,7 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 - JSON 在启动时读取、设置修改和退出时保存；托盘“重新读取配置”即时应用并刷新勾选，保留暂停及 F2/F3/F4 临时状态，读取失败保留原有运行配置。
 - JSON 分组为 `Keyboard`、`Mouse`、`Window`、`Python`、`PersonalScripts`、`RemoteDesktop`、`IME`；`Python.condaEnvironment` 默认 `base`，F2/F3/F4 模式和暂停状态不持久化。
 - Caps+B 和查看器共用 `Window.passThroughOpacityPercent`（整数 0–100，默认 59），重新读取配置后在下次开启穿透时生效。
-- 外部工具平铺在托盘「其他工具」中，窗口信息查看器下方依次放分隔线、灰色禁用标题「以下为 PersonalScripts 工具」和工具入口。`PersonalScripts.launcherPath` 为空或失效时依次从 PATH 查找 `run-script.ps1`、`run-script.py` 并保存，仅用其目录定位脚本。热键和托盘共用启动逻辑，入口或目标脚本缺失时弹出警告并提供 GitHub 安装链接。
+- 外部工具平铺在托盘「其他工具」中，窗口信息查看器下方保留分隔线和灰色标题「以下为 PersonalScripts 工具」。入口依次按键盘与文字、系统、文件与同步、其他工具排列，组间用横线分隔，run-script 启动器在末尾单列。`PersonalScripts.launcherPath` 为空或失效时依次从 PATH 查找 `run-script.ps1`、`run-script.py` 并保存，仅用其目录定位脚本。热键和托盘共用启动逻辑，入口或目标脚本缺失时弹出警告并提供 GitHub 安装链接。
 - 托盘中的 `rclone-sync` 和 `run-script 启动器` 使用项目配置的 Python，优先在 Windows Terminal 新窗口中无参数启动，无法启动 Terminal 时使用独立控制台，两者均启用 ANSI 输出。启动器单列在末尾的分隔线下方。
 - `Mouse.xButtonMapping` 默认开启，由托盘“侧键映射”切换并保存；全局暂停独立于此设置。
 - `Mouse.pointerFastStep` 默认 `10`，`Mouse.wheelMultiplier` 默认 `5`，均为正整数；Caps+Shift+滚轮每次横向滚动一格。
@@ -120,7 +120,7 @@ D:\Projects\AHK_Scripts\AHK-SysUtil2\src\Input\Touchpad.ahk
 - IME 基础接口位于 `src/lib/ime.ahk`，方法表在 `src/rules/ime.ahk`，语言分流在 `src/actions/ime.ahk`；`koreanToggle` 支持 `api`、`hangul`（默认），`japaneseToggle` 支持 `api`、`alt_grave`（默认），韩文汉字使用 VK_HANJA。
 - 同文件中的 `JapaneseIme(sender).Hiragana()` / `.Katakana()` 默认发送 Ctrl+CapsLock / Alt+CapsLock，传入 `JapaneseIme.KanaKey` 改用 Kana / Shift+Kana；日文下分别绑定 Caps+. / Caps+Shift+.。
 - 托盘“重置钩子”由 `HotkeySession` 协调控制器收尾并调用 `NativeHotkeys.ResetHooks()` 强制重装键盘/鼠标钩子，保留开关与暂停状态，不重复注册热键。
-- Caps+S 和托盘「屏幕键盘」共用启动命令，直接运行 PersonalScripts 的 `tools/others/screen-keyboard.py`。每次按 F24、CapsLock、F1 的顺序选用首个启用键，通过 `--force-layer` 临时指定；全关时省略参数。单实例、Prefs 和窗口生命周期归外部工具管理。
+- Caps+S 和托盘「屏幕键盘」共用启动命令，直接运行 PersonalScripts 的 `tools/input-and-text/screen-keyboard.py`。每次按 F24、CapsLock、F1 的顺序选用首个启用键，通过 `--force-layer` 临时指定；全关时省略参数。单实例、Prefs 和窗口生命周期归外部工具管理。
 - 外部键盘发送 Windows 键盘事件。热键分发同时识别物理和逻辑修饰键，重复动作结束时仅恢复仍按住的修饰键。
 - 所有项目 GUI 按 96 DPI 逻辑尺寸设计，使用 Per-Monitor V2 和 `WM_DPICHANGED` 同步窗口、字体、控件及最小尺寸；Tk 共用 `py/utils/dpi_window.py`，AHK 共用 `ui/dpi_gui.ahk`，跨屏不轮询、不累积缩放，窗口限制在当前显示器工作区内。
 - ctypes 原生窗口回调只将命令入队，由阻塞等待的工作线程交给 Tk 主线程，禁止在原生回调中直接调用 Tk。

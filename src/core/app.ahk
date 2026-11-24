@@ -79,6 +79,8 @@ class App {
             "paths", ObjBindMethod(this.Paths, "Show"),
             "windowInspector", ObjBindMethod(this.WindowInspector, "Open"),
             "unicodeInspector", ObjBindMethod(this.UnicodeInspector, "Open"),
+            "autoTyper", ObjBindMethod(this.PersonalTools, "Launch", "tools\input-and-text\auto-typer.py"),
+            "textProcessor", ObjBindMethod(this.PersonalTools, "Launch", "tools\input-and-text\text-processor.py"),
             "keyboardRemapper", ObjBindMethod(this.PersonalTools, "Launch", "tools\windows\keyboard-remapper.py"),
             "systemEventViewer", ObjBindMethod(this.PersonalTools, "Launch", "tools\others\system-event-viewer.py"),
             "imageOcr", ObjBindMethod(this.PersonalTools, "Launch", "tools\document-processing\image-to-text-and-formula.py"),
@@ -138,7 +140,7 @@ class App {
                 break
             }
         }
-        return this.PersonalTools.Launch("tools\others\screen-keyboard.py", arguments)
+        return this.PersonalTools.Launch("tools\input-and-text\screen-keyboard.py", arguments)
     }
 
     static ApplyLayerKeys(*) {

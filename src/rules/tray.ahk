@@ -11,12 +11,14 @@ class TrayBindings {
             {Label: "其他工具", Items: [
                 this.Item("windowInspector", "窗口信息查看器", commands, checks),
                 "", {Heading: " 以下为 PersonalScripts 工具"},
+                this.Item("autoTyper", "自动打字工具", commands, checks),
+                this.Item("textProcessor", "文本处理工具", commands, checks),
                 this.Item("unicodeInspector", "Unicode 字符查看器", commands, checks),
-                this.Item("keyboardRemapper", "键盘映射编辑器", commands, checks),
-                this.Item("systemEventViewer", "系统事件查看器", commands, checks),
-                this.Item("imageOcr", "图片文字与公式识别", commands, checks),
-                this.Item("matrixViewer", "矩阵查看器", commands, checks),
+                this.Item("keyboardRemapper", "键盘映射编辑器", commands, checks), "",
+                this.Item("systemEventViewer", "系统事件查看器", commands, checks), "",
                 this.Item("rcloneSync", "rclone-sync", commands, checks), "",
+                this.Item("imageOcr", "图片文字与公式识别", commands, checks),
+                this.Item("matrixViewer", "矩阵查看器", commands, checks), "",
                 this.Item("runScript", "run-script 启动器", commands, checks)]},
             "",
             this.Item("mouse", "F2 中键 / F3 向上滚动 / F4 向下滚动", commands, checks)

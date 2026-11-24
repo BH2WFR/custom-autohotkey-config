@@ -1,4 +1,5 @@
 ﻿#Requires AutoHotkey v2.0
+#Warn Unreachable, StdOut
 #Include ../src/lib/json.ahk
 #Include ../src/lib/config.ahk
 #Include ../src/lib/input_rule.ahk
@@ -110,13 +111,25 @@ class AppTests {
             && DllCall("GetMenuState", "Ptr", toolsMenu, "UInt", heading - 2, "UInt", 0x400) & 0x800
             && DllCall("GetMenuState", "Ptr", toolsMenu, "UInt", heading - 1, "UInt", 0x400) & 3,
             "A separator and disabled PersonalScripts heading follow the inspector")
-        for id in ["unicodeInspector", "keyboardRemapper", "systemEventViewer", "imageOcr", "matrixViewer", "rcloneSync", "runScript"]
-            this.Assert(toolsMenu == App.Tray.Entries[id].Menu.Handle, "Tool is directly in the tools submenu: " id)
-        scripts := App.Tray.Entries["runScript"].Menu
-        syncIndex := this.MenuHas(scripts, "rclone-sync")
-        this.Assert(this.MenuHas(scripts, "run-script 启动器") == syncIndex + 2
-            && DllCall("GetMenuState", "Ptr", toolsMenu, "UInt", syncIndex, "UInt", 0x400) & 0x800,
-            "A separator groups the launcher below rclone-sync")
+        for id in ["autoTyper", "textProcessor", "unicodeInspector", "keyboardRemapper", "", "systemEventViewer", "",
+                "rcloneSync", "", "imageOcr", "matrixViewer", "", "runScript"] {
+            position := heading + A_Index
+            if id == "" {
+                this.Assert(DllCall("GetMenuState", "Ptr", toolsMenu, "UInt", position - 1, "UInt", 0x400) & 0x800,
+                    "Tool group separator at position " position)
+            } else {
+                entry := App.Tray.Entries[id]
+                this.Assert(entry.Menu.Handle == toolsMenu && this.MenuHas(localTools, entry.Item.Label) == position,
+                    "Tool position in native submenu: " id)
+            }
+        }
+        if A_Args.Length && A_Args[1] == "--tools-only" {
+            this.CheckToolLaunch("autoTyper", "Auto Typer")
+            this.CheckToolLaunch("textProcessor", "Text Processor")
+            App.Stop()
+            FileAppend("PASS: " this.Count " native tray tool assertions" Chr(10), "*", "UTF-8")
+            return
+        }
         this.LayerKeySettings()
         if A_Args.Length && A_Args[1] == "--settings-only" {
             this.ReloadSettings()
@@ -215,6 +228,29 @@ class AppTests {
         App.Stop()
         this.Assert(Config.LoadJson(App.Config.Path)["Mouse"]["reverseHorizontal"] == App.MouseSettings.reverseHorizontal, "Shutdown saves current settings")
         FileAppend("PASS: " this.Count " app assertions" Chr(10), "*", "UTF-8")
+    }
+
+    static CheckToolLaunch(id, title) {
+        entry := App.Tray.Entries[id]
+        position := this.MenuHas(entry.Menu, entry.Item.Label) - 1
+        command := DllCall("GetMenuItemID", "Ptr", entry.Menu.Handle, "Int", position, "UInt")
+        query := title " ahk_exe pythonw.exe"
+        existing := Map()
+        for hwnd in WinGetList(query)
+            existing[hwnd] := true
+        PostMessage(0x111, command, 0,, A_ScriptHwnd) ; WM_COMMAND from the native menu
+        deadline := A_TickCount + 10000
+        loop {
+            for hwnd in WinGetList(query) {
+                if existing.Has(hwnd) || WinGetTitle(hwnd) != title
+                    continue
+                WinClose(hwnd)
+                this.Assert(WinWaitClose(hwnd,, 3), "Opened and closed " title)
+                return
+            }
+            Sleep(50)
+        } until A_TickCount >= deadline
+        throw Error("Tray command did not open " title)
     }
 
     static MenuHas(menu, label) {
@@ -785,7 +821,7 @@ class AppTests {
             WinActivate(target.Hwnd)
             this.Assert(WinWaitActive(target.Hwnd,, 2), "Native keyboard test has focus")
             edit.Focus()
-            script := App.PersonalTools.ResolveScript("tools\others\screen-keyboard.py")
+            script := App.PersonalTools.ResolveScript("tools\input-and-text\screen-keyboard.py")
             pid := App.Python.Launch(A_ScriptDir "\personal_keyboard_input.py", [script.Script, target.Hwnd], App.Root, false)
             this.Assert(!ProcessWaitClose(pid, 8), "External keyboard input probe finished")
             actual := ""

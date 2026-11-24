@@ -2,7 +2,7 @@
 
 macOS 姊妹项目：[custom-karabiner-config](https://github.com/BH2WFR/custom-karabiner-config)。
 
-屏幕键盘、Unicode 字符查看器等工具来自 [PersonalScripts](https://github.com/BH2WFR/PersonalScripts)。
+屏幕键盘和 Unicode 字符查看器位于 [PersonalScripts](https://github.com/BH2WFR/PersonalScripts) 的 `tools/input-and-text/`。
 
 托盘「其他设置 → Layer 键设置」可分别开关 CapsLock、F1 和 F24，默认均开启。实体键盘和屏幕键盘共用这些开关。启用时，本地 Layer 拦截对应按键，关闭后由系统原样接收。
 
@@ -122,7 +122,7 @@ Shift+侧键在文件管理器及压缩工具中返回上级目录，在其他�
 
 中键拖动：图片查看器、聊天软件的看图窗口及 Freeplane 中，按住中键模拟左键拖动；Photoshop、Illustrator、InDesign、Acrobat 等 Adobe 应用中，模拟空格＋左键拖动。
 
-从托盘「其他工具」打开窗口信息查看器时，初始目标为空。窗口查看器下方的「以下为 PersonalScripts 工具」列出 Unicode 字符查看器、键盘映射编辑器、系统事件查看器、图片文字与公式识别和矩阵查看器。从托盘启动 Unicode 字符查看器时会载入剪贴板文本。找不到 PersonalScripts 入口或工具脚本时，可从警告对话框打开 GitHub 项目页下载安装。
+从托盘「其他工具」打开窗口信息查看器时，初始目标为空。下方的 PersonalScripts 工具按键盘与文字、系统、文件与同步、其他工具分组。第一组可打开自动打字工具、文本处理工具、Unicode 字符查看器和键盘映射编辑器。Unicode 字符查看器会载入剪贴板文本。找不到 PersonalScripts 入口或工具脚本时，可从警告对话框打开 GitHub 项目页下载安装。
 
 同一菜单中的 `rclone-sync` 和末尾分隔线下方的 `run-script 启动器` 优先在 Windows Terminal 新窗口中打开，Terminal 不可用时自动使用独立控制台。两种窗口均支持 ANSI 颜色和光标控制。
 

@@ -47,7 +47,7 @@ class PersonalScriptsTests {
     }
     static Run() {
         directory := A_ScriptDir "\..\tmp\personal scripts test " DllCall("GetCurrentProcessId")
-        scriptDirectory := directory "\tools\others"
+        scriptDirectory := directory "\tools\input-and-text"
         DirCreate(scriptDirectory)
         script := directory "\" UnicodeInspectorActions.Script
         psLauncher := directory "\run-script.ps1", pyLauncher := directory "\run-script.py"
