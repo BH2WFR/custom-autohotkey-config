@@ -69,6 +69,10 @@ class WindowErrorTests {
             this.ExpectError(ObjBindMethod(actions, "Stop"), tip, "Stop with invalid pass-through")
             this.Assert(!actions.PassHwnd, "Stop clears invalid handle")
             failure := this.FailingActions(tip, settings)
+            failure.TargetHwnd := sentinel.Hwnd
+            WindowTools.SetOpacity(sentinel.Hwnd, 200)
+            this.Assert(failure.WheelTransparency(-20, 2) && WindowTools.GetOpacity(sentinel.Hwnd) == 160,
+                "Two wheel notches apply two transparency steps to the target window")
             failure.TargetHwnd := closed
             this.ExpectError(ObjBindMethod(failure, "WheelTransparency", -20), tip, "Wheel transparency target disappeared")
             this.ExpectError(ObjBindMethod(failure, "ShowDesktop"), tip, "System API error")

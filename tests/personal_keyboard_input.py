@@ -24,7 +24,8 @@ def main():
                 output.hold(key, True)
             for _ in range(2):
                 time.sleep(0.1)
-                output.key("2", modifiers)
+                output.key_down("2", modifiers)
+                output.key_up()
             time.sleep(0.1)
             output.reset()
             time.sleep(0.1)
@@ -35,7 +36,8 @@ def main():
         output.hold("LAlt", True)
         output.hold("Layer", True)
         time.sleep(0.1)
-        output.key("2", ["LShift", "LAlt"])
+        output.key_down("2", ["LShift", "LAlt"])
+        output.key_up()
         time.sleep(0.08)
     finally:
         output.reset()

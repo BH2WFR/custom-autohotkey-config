@@ -27,3 +27,50 @@ class NativeHotkeys {
         }
     }
 }
+
+; A_EventInfo 是无符号滚动量，方向来自热键名。斜向滚动时两个轴分别累计。
+class WheelAccumulator {
+    static DeltaPerNotch := 120
+    Enabled := false
+    Axes := Map()
+
+    Reset() => this.Axes.Clear()
+
+    SetEnabled(enabled) {
+        if this.Enabled != !!enabled {
+            this.Reset()
+            this.Enabled := !!enabled
+        }
+    }
+
+    Take(key, amount, route, hwnd := unset) {
+        if !this.Enabled
+            return 1
+        ; 整格立即生效，仅零头参与累计，避免触控板余量抵消普通鼠标的反向一格。
+        notches := amount // WheelAccumulator.DeltaPerNotch
+        fraction := Mod(amount, WheelAccumulator.DeltaPerNotch)
+        vertical := key == "WheelUp" || key == "WheelDown"
+        axis := this.Axes.Get(vertical, false)
+        if !fraction && !axis
+            return notches
+        if !IsSet(hwnd)
+            hwnd := WinExist("A")
+        if !axis || axis.Route != route || axis.Hwnd != hwnd
+            this.Axes[vertical] := axis := {Route: route, Hwnd: hwnd, Remainder: 0}
+        delta := key == "WheelUp" || key == "WheelRight" ? fraction : -fraction
+        total := axis.Remainder + delta
+        axis.Remainder := Mod(total, WheelAccumulator.DeltaPerNotch)
+        if !axis.Remainder
+            this.Axes.Delete(vertical)
+        return notches + Abs(total) // WheelAccumulator.DeltaPerNotch
+    }
+
+    Dispatch(key, route, action, *) {
+        previousCritical := Critical("On")
+        try {
+            count := this.Take(key, A_EventInfo, route)
+            if count
+                action.Call(count)
+        } finally Critical(previousCritical)
+    }
+}

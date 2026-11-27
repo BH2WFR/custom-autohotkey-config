@@ -53,6 +53,7 @@ class HotkeyDispatcher {
 }
 
 class HotkeyContext {
+    WheelSteps := 1
     __New(key, modifiers, triggers, hwnd := 0) {
         this.Key := key
         this.Modifiers := modifiers

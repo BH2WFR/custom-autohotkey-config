@@ -78,7 +78,7 @@ class AppTests {
             this.Events := []
         }
         Middle(down) => this.Events.Push(down ? "down" : "up")
-        Scroll(direction) => this.Events.Push(direction)
+        Scroll(direction, count := 1) => this.Events.Push(direction " " count)
     }
 
     class FakeKeys {
@@ -176,7 +176,7 @@ class AppTests {
         this.Assert(A_TrayMenu.Default == "&Open", "Default tray action opens native AHK window")
         for id in ["mouse", "config", "readConfig"]
             this.Assert(App.Tray.Entries[id].Menu == A_TrayMenu, "Frequent toggle stays at root: " id)
-        for id in ["xbuttons", "reverse", "transparency", "autorun", "ime/chineseToggle/api", "remote/F1"]
+        for id in ["xbuttons", "reverse", "wheelDeltaAdaptation", "transparency", "autorun", "ime/chineseToggle/api", "remote/F1"]
             this.Assert(App.Tray.Entries[id].Menu != A_TrayMenu, "Settings are in submenus: " id)
         this.Assert(this.MenuHas(A_TrayMenu, "&Open") && this.MenuHas(A_TrayMenu, "&Window Spy")
             && this.MenuHas(A_TrayMenu, "&Reload Script") && this.MenuHas(A_TrayMenu, "E&xit"), "Native AHK tools and lifecycle entries retained")
@@ -625,7 +625,20 @@ class AppTests {
     }
 
     static ReloadSettings() {
+        this.Assert(!App.Input.Wheel.Enabled, "Wheel delta adaptation defaults off")
+        App.Tray.Invoke("wheelDeltaAdaptation")
         data := Config.LoadJson(App.Config.Path)
+        wheelEntry := App.Tray.Entries["wheelDeltaAdaptation"]
+        position := this.MenuHas(wheelEntry.Menu, wheelEntry.Item.Label) - 1
+        this.Assert(App.Input.Wheel.Enabled && data["Mouse"]["wheelDeltaAdaptation"] == 1
+            && (DllCall("GetMenuState", "Ptr", wheelEntry.Menu.Handle, "UInt", position, "UInt", 0x400) & 8),
+            "Tray applies, checks and saves wheel delta adaptation")
+        data["Mouse"].Delete("wheelDeltaAdaptation")
+        Config.SaveJson(data, App.Config.Path)
+        App.Tray.Invoke("readConfig")
+        this.Assert(!App.Input.Wheel.Enabled && !(DllCall("GetMenuState", "Ptr", wheelEntry.Menu.Handle,
+            "UInt", position, "UInt", 0x400) & 8), "Reloading a legacy config restores the default wheel mode and check mark")
+        data["Mouse"]["wheelDeltaAdaptation"] := 0
         environment := data["Python"]["condaEnvironment"]
         data["Keyboard"]["f1Alias"] := 0
         this.Assert(data["Window"]["passThroughOpacityPercent"] == 59 && App.Windows.PassOpacity == 150, "Default pass-through opacity round-trips")
@@ -759,9 +772,9 @@ class AppTests {
         mouse.ScrollKeyDown("F4", "WheelDown")
         mouse.KeyUp("F4")
         this.Assert(actions.Events.Length == 6, "Scroll keys emit once per press")
-        this.Assert(actions.Events[5] == "WheelUp" && actions.Events[6] == "WheelDown", "F3/F4 directions")
-        mouse.Horizontal("WheelLeft")
-        this.Assert(actions.Events[7] == "WheelRight", "Horizontal direction reversed")
+        this.Assert(actions.Events[5] == "WheelUp 1" && actions.Events[6] == "WheelDown 1", "F3/F4 directions")
+        mouse.Horizontal("WheelLeft", 2)
+        this.Assert(actions.Events[7] == "WheelRight 2", "Horizontal direction reversed with its notch count")
         mouse.MiddleKeyDown("F2")
         mouse.ResetInput()
         this.Assert(actions.Events[-1] == "up" && !mouse.MiddleDown && !mouse.Held.Count && mouse.FunctionKeys, "Reset releases simulated middle and preserves mode")

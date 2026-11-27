@@ -18,11 +18,12 @@ class AppSettings {
     class Mouse extends Config.IConfig {
         xButtonMapping := 1
         reverseHorizontal := 0
+        wheelDeltaAdaptation := 0
         winWheelTransparency := 1
         pointerFastStep := 10
         wheelMultiplier := 5
         CheckValid() {
-            for value in [this.xButtonMapping, this.reverseHorizontal, this.winWheelTransparency] {
+            for value in [this.xButtonMapping, this.reverseHorizontal, this.wheelDeltaAdaptation, this.winWheelTransparency] {
                 if value != 0 && value != 1
                     return "鼠标开关必须为 0 或 1。"
             }

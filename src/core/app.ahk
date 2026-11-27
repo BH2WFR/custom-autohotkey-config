@@ -57,6 +57,7 @@ class App {
         this.Triggers := TriggerRouter(this.State, this.Sender, ObjBindMethod(this.CapsPolicy, "Resolve"))
         this.Input := HotkeyInput(this.State, this.Registry, this.Dispatcher, this.Triggers,
             CapsPolicy.Aliases(this.Settings), ObjBindMethod(this.Ime, "ToggleLanguage"))
+        this.Input.Wheel.SetEnabled(this.MouseSettings.wheelDeltaAdaptation)
         this.Paths := PopupMenuView(PathMenuBindings.Create(root), ObjBindMethod(this.PathActions, "Open"))
         HotkeyBindings.Register(this.Registry, this.Diagnostics, this.Ime, this.OpenScreenKeyboard, this.Anki, this.Touchpad, this.Wheel,
             this.Sender, this.ClipboardActions, this.TextActions, this.MouseSender, this.Pointer, this.Windows, this.Keys, this.Paths, this.ToolCommands)
@@ -92,6 +93,7 @@ class App {
             "mouse", ObjBindMethod(this.Mouse, "ToggleFunctionKeys"),
             "xbuttons", ObjBindMethod(this.SettingActions, "Toggle", this.MouseSettings, "xButtonMapping", ObjBindMethod(this.XButtons, "SetMappingEnabled")),
             "reverse", ObjBindMethod(this.SettingActions, "Toggle", this.MouseSettings, "reverseHorizontal"),
+            "wheelDeltaAdaptation", ObjBindMethod(this.SettingActions, "Toggle", this.MouseSettings, "wheelDeltaAdaptation", ObjBindMethod(this.Input.Wheel, "SetEnabled")),
             "transparency", ObjBindMethod(this.SettingActions, "Toggle", this.MouseSettings, "winWheelTransparency"),
             "autorun", ObjBindMethod(this.Autorun, "Toggle"),
             "config", ObjBindMethod(ApplicationActions, "OpenPath", this.ConfigDirectory),
@@ -105,6 +107,7 @@ class App {
             "mouse", ObjBindMethod(this.Mouse, "FunctionKeysEnabled"),
             "xbuttons", ObjBindMethod(SettingsActions, "Read", this.MouseSettings, "xButtonMapping"),
             "reverse", ObjBindMethod(SettingsActions, "Read", this.MouseSettings, "reverseHorizontal"),
+            "wheelDeltaAdaptation", ObjBindMethod(SettingsActions, "Read", this.MouseSettings, "wheelDeltaAdaptation"),
             "transparency", ObjBindMethod(SettingsActions, "Read", this.MouseSettings, "winWheelTransparency"),
             "autorun", ObjBindMethod(this.Autorun, "IsEnabled"),
             "pause", ObjBindMethod(this.Session, "IsPaused"))
@@ -156,6 +159,7 @@ class App {
     static ApplySettings() {
         this.ApplyLayerKeys()
         this.XButtons.SetMappingEnabled(this.MouseSettings.xButtonMapping)
+        this.Input.Wheel.SetEnabled(this.MouseSettings.wheelDeltaAdaptation)
         if this.Python.Environment != this.PythonSettings.condaEnvironment
             this.Python.SetEnvironment(this.PythonSettings.condaEnvironment)
     }

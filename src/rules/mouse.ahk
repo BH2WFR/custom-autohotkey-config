@@ -14,13 +14,16 @@ class MouseBindings {
             native.Add("*" key, ObjBindMethod(mouse, "ScrollKeyDown", key, direction), ObjBindMethod(mouse, "CanHandle", key))
         for key in ["F2", "F3", "F4"]
             native.Add("*" key " up", ObjBindMethod(mouse, "KeyUp", key), ObjBindMethod(mouse, "IsHeld", key))
+        addWheel(key, route, action, condition) {
+            native.Add("*" key, ObjBindMethod(input.Wheel, "Dispatch", key, route, action), condition)
+        }
         for direction in ["WheelLeft", "WheelRight"]
-            native.Add("*" direction, ObjBindMethod(mouse, "Horizontal", direction), ObjBindMethod(mouse, "ReverseEnabled"))
+            addWheel(direction, "reverse", ObjBindMethod(mouse, "Horizontal", direction), ObjBindMethod(mouse, "ReverseEnabled"))
         for key, up in Map("WheelUp", true, "WheelDown", false) {
             capsAvailable := ObjBindMethod(input, "CanHandle", key)
-            native.Add("*" key, ObjBindMethod(windows, "WheelTransparency", up ? WheelPolicy.TransparencyStep : -WheelPolicy.TransparencyStep),
+            addWheel(key, WheelPolicy.Window, ObjBindMethod(windows, "WheelTransparency", up ? WheelPolicy.TransparencyStep : -WheelPolicy.TransparencyStep),
                 ObjBindMethod(WheelPolicy, "Transparency", mouse, capsAvailable))
-            native.Add("*" key, ObjBindMethod(wheel, "Volume", up), ObjBindMethod(WheelPolicy, "Taskbar", mouse, capsAvailable))
+            addWheel(key, WheelPolicy.Volume, ObjBindMethod(wheel, "Volume", up), ObjBindMethod(WheelPolicy, "Taskbar", mouse, capsAvailable))
         }
     }
 }

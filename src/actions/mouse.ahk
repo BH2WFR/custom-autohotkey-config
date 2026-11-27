@@ -55,7 +55,7 @@
             this.ReleaseMiddle()
     }
 
-    Horizontal(direction, *) => this.Actions.Scroll(direction == "WheelLeft" ? "WheelRight" : "WheelLeft")
+    Horizontal(direction, count := 1) => this.Actions.Scroll(direction == "WheelLeft" ? "WheelRight" : "WheelLeft", count)
 
     ResetInput() {
         this.ReleaseMiddle()

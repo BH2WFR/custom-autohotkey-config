@@ -13,7 +13,7 @@ class WheelActions {
         horizontal := context.Layer == 2
         direction := horizontal ? (up ? "WheelLeft" : "WheelRight") : (up ? "WheelUp" : "WheelDown")
         ; 连续操作保留层，只在发送期间移除 Shift 等修饰键。
-        this.Mouse.ScrollUnmodified(direction, horizontal ? 1 : this.Settings.wheelMultiplier)
+        this.Mouse.ScrollUnmodified(direction, context.WheelSteps * (horizontal ? 1 : this.Settings.wheelMultiplier))
         this.Tooltip.Show(horizontal ? (up ? "向左横向滚动" : "向右横向滚动") : (up ? "快速向上滚动" : "快速向下滚动"), WheelActions.TipDuration)
     }
 
@@ -21,5 +21,5 @@ class WheelActions {
         this.Mouse.ScrollUnmodified(left ? "WheelLeft" : "WheelRight")
         this.Tooltip.Show(left ? "向左横向滚动" : "向右横向滚动", WheelActions.TipDuration)
     }
-    Volume(up, *) => this.Sender.Send(up ? "{Volume_Up}" : "{Volume_Down}")
+    Volume(up, count := 1) => this.Sender.Send("{" (up ? "Volume_Up" : "Volume_Down") " " count "}")
 }

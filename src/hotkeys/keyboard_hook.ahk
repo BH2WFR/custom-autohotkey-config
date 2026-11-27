@@ -2,6 +2,7 @@
 class HotkeyInput {
     static ExitMenuLoopMessage := 0x0212
     static DeferredCleanup := -1
+    static HotkeyRateWindowMs := 50
     __New(state, registry, dispatcher, triggers, aliases, tap) {
         this.State := state
         this.Registry := registry
@@ -10,6 +11,7 @@ class HotkeyInput {
         this.Aliases := aliases
         this.Tap := tap
         this.Native := NativeHotkeys()
+        this.Wheel := WheelAccumulator()
         this.Started := false
         this.Enabled := true
         this.MenuExitCallback := ObjBindMethod(this, "MenuExited")
@@ -17,6 +19,8 @@ class HotkeyInput {
     }
 
     Start() {
+        ; 高频滚轮的每个小 delta 都会进入热键回调，缩短 AHK 统计突发热键的时间窗口。
+        A_HotkeyInterval := HotkeyInput.HotkeyRateWindowMs
         InstallKeybdHook()
         OnMessage(HotkeyInput.ExitMenuLoopMessage, this.MenuExitCallback)
         for key, enabled in this.Aliases {
@@ -53,6 +57,7 @@ class HotkeyInput {
     }
 
     ResetInput() {
+        this.Wheel.Reset()
         this.Triggers.Cancel()
         this.ReconcileReleased()
     }
@@ -94,6 +99,7 @@ class HotkeyInput {
     SetEnabled(enabled) {
         this.Enabled := !!enabled
         if !enabled {
+            this.Wheel.Reset()
             this.Triggers.Cancel()
         } else {
             for key, active in this.Aliases {
@@ -135,7 +141,11 @@ class HotkeyInput {
     AliasDown(key, *) {
         previousCritical := A_IsCritical
         Critical("On")
-        try this.Triggers.Down(key, WinExist("A"))
+        try {
+            if !this.State.Held.Count
+                this.Wheel.Reset()
+            this.Triggers.Down(key, WinExist("A"))
+        }
         finally Critical(previousCritical)
     }
 
@@ -161,8 +171,10 @@ class HotkeyInput {
             this.Tap.Call(context)
     }
 
-    KeyDown(key, *) {
-        ; Dispatcher 只保护短状态转换；动作回调保持可中断。
+    KeyDown(key, *) => this.DispatchKey(key)
+
+    DispatchKey(key, wheelAmount := unset) {
+        ; 键盘动作可中断，滚轮由 KeyPulse 串行处理。
         if this.State.Captured.Has(key)
             return
         ; 一次性动作结束层后仍吸收匹配键，直到最后一个别名物理松开。
@@ -176,6 +188,14 @@ class HotkeyInput {
         if !this.Triggers.AllowsLayer(hwnd)
             return
         context := HotkeyContext(key, modifiers, this.State.Triggers(), hwnd)
+        if IsSet(wheelAmount) && this.Wheel.Enabled {
+            if !this.Registry.Resolve(key, context.Layer, hwnd)
+                return
+            this.State.Used := true
+            context.WheelSteps := this.Wheel.Take(key, wheelAmount, context.Layer, hwnd)
+            if !context.WheelSteps
+                return
+        }
         context.LogicalModifiers := KeyboardSender.ReadModifiers("")
         if hwnd {
             try {
@@ -190,8 +210,13 @@ class HotkeyInput {
 
     KeyUp(key, *) => this.State.KeyUp(key)
     KeyPulse(key, *) {
-        try this.KeyDown(key)
-        finally this.KeyUp(key)
+        ; 连续同向滚动在本次发送和 KeyUp 完成后再处理，避免 AHK 丢弃重入的同名热键。
+        previousCritical := Critical("On")
+        try this.DispatchKey(key, A_EventInfo)
+        finally {
+            this.KeyUp(key)
+            Critical(previousCritical)
+        }
     }
     Ignore(*) {
     }

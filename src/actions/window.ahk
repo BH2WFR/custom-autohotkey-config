@@ -29,7 +29,7 @@
     ShowDesktop(*) => this.Run("显示桌面", ObjBindMethod(this, "_ShowDesktop"))
     MinimizeOthers(context) => this.Run("最小化其他窗口", ObjBindMethod(this, "_MinimizeOthers"), context)
     TogglePassThrough(context) => this.Run("切换窗口穿透", ObjBindMethod(this, "_TogglePassThrough"), context)
-    WheelTransparency(delta, *) => this.Run("调整窗口透明度", ObjBindMethod(this, "_WheelTransparency"), delta)
+    WheelTransparency(delta, count := 1) => this.Run("调整窗口透明度", ObjBindMethod(this, "_WheelTransparency"), delta * count)
     Stop(*) => this.Run("关闭窗口穿透", ObjBindMethod(this, "DisablePassThrough"))
 
     _Center(reset, context) {

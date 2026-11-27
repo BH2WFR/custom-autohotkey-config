@@ -238,9 +238,27 @@ class HotkeyTests {
         this.State.AliasDown("F24")
         router := TriggerRouter(this.State, this.Sender, (*) => "layer")
         input := HotkeyInput(this.State, this.Registry, this.Dispatcher, router, Map("F24", true), ObjBindMethod(this, "Action"))
+        for amount in [30, 120, 240] {
+            A_EventInfo := amount
+            input.KeyPulse("WheelUp")
+            this.Assert(this.Events.Length == A_Index && this.Events[-1].WheelSteps == 1, "未开启适配时每个滚轮消息执行一次")
+        }
+        this.Events := []
+        this.Sender.Calls := 0
+        this.State.Used := false
+        input.Wheel.SetEnabled(true)
+        A_EventInfo := 30
         input.KeyPulse("WheelUp")
+        this.Assert(!this.Events.Length && this.State.Used && !this.Sender.Calls, "不足一格的滚轮抑制轻按输入法切换，无需释放修饰键")
+        A_EventInfo := 90
         input.KeyPulse("WheelUp")
-        this.Assert(this.Events.Length == 2 && !this.State.Captured.Has("WheelUp"), "输入适配器连续两次滚轮无需等待 KeyUp")
+        A_EventInfo := 240
+        input.KeyPulse("WheelUp")
+        this.Assert(this.Events.Length == 2 && this.Events[1].WheelSteps == 1 && this.Events[2].WheelSteps == 2
+            && !this.State.Captured.Has("WheelUp"), "滚轮累计整格并保留多格输入，无需等待 KeyUp")
+        A_EventInfo := 120
+        input.KeyPulse("WheelUp")
+        this.Assert(this.Events.Length == 3 && this.Events[-1].WheelSteps == 1, "开启适配后普通鼠标一格立即执行一次")
         this.Registry.Layers("WheelDown", Map(1, ObjBindMethod(this, "FailAction")))
         this.Throws(() => input.KeyPulse("WheelDown"), "滚轮动作异常传播")
         this.Assert(!this.State.Captured.Has("WheelDown") && this.State.Active, "滚轮异常也释放脉冲捕获")
